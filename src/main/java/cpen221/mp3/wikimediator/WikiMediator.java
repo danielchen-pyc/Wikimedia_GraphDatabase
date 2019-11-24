@@ -1,5 +1,8 @@
 package cpen221.mp3.wikimediator;
 
+import fastily.jwiki.core.Wiki;
+
+import java.util.ArrayList;
 import java.util.List;
 
 public class WikiMediator {
@@ -16,6 +19,8 @@ public class WikiMediator {
 
      */
 
+    private Wiki wiki = new Wiki("en.wikipedia.org");
+
     /**
      * Given a `query`, return up to `limit` page titles that match the
      * query string (per Wikipedia's search service).
@@ -25,7 +30,14 @@ public class WikiMediator {
      * @return
      */
     public List<String> simpleSearch(String query, int limit) {
-        return null;
+        ArrayList<String> titles = wiki.search(query, limit);
+        ArrayList<String> listOfSearch = new ArrayList<>();
+
+        for (String title: titles) {
+            listOfSearch.add(getPage(title));
+        }
+
+        return listOfSearch;
     }
 
     /**
@@ -36,7 +48,8 @@ public class WikiMediator {
      * @return
      */
     public String getPage(String pageTitle) {
-        return null;
+
+        return wiki.getPageText(pageTitle);
     }
 
     /**
@@ -48,6 +61,7 @@ public class WikiMediator {
      * @return
      */
     public List<String> getConnectedPages(String pageTitle, int hops) {
+
         return null;
     }
 
