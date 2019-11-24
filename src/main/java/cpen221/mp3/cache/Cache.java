@@ -16,7 +16,8 @@ public class Cache<T extends Cacheable> {
      * are removed from the cache.
      *
      * @param capacity the number of objects the cache can hold
-     * @param timeout  the duration an object should be in the cache before it times out
+     * @param timeout  the duration (in seconds) an object should be in the cache
+     *                 before it times out
      */
     public Cache(int capacity, int timeout) {
         // TODO: implement this constructor
