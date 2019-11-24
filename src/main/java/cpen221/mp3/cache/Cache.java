@@ -1,6 +1,12 @@
 package cpen221.mp3.cache;
 
-public class Cache<T extends Cacheable> {
+import java.util.HashSet;
+
+public class Cache <T extends Cacheable> {
+
+    // TODO - concurrency - make cache automatically remove outdated data, be thread safe
+
+    // assume each item has a unique id
 
     /* the default cache size is 32 objects */
     public static final int DSIZE = 32;
@@ -8,7 +14,9 @@ public class Cache<T extends Cacheable> {
     /* the default timeout value is 3600s */
     public static final int DTIMEOUT = 3600;
 
-    /* TODO: Implement this datatype */
+    private HashSet<CacheObject<T>> data;
+    private int capacity;
+    private int timeout;
 
     /**
      * Create a cache with a fixed capacity and a timeout value.
@@ -20,7 +28,10 @@ public class Cache<T extends Cacheable> {
      *                 before it times out
      */
     public Cache(int capacity, int timeout) {
-        // TODO: implement this constructor
+        this.capacity = capacity;
+        this.timeout = timeout;
+        this.data = new HashSet<>(this.capacity);
+        // run a CacheHandler
     }
 
     /**
@@ -30,13 +41,38 @@ public class Cache<T extends Cacheable> {
         this(DSIZE, DTIMEOUT);
     }
 
+    // maybe this is the right way to do things? idk - for now, not implemented
+    private class CacheHandler implements Runnable {
+
+        @Override
+        public void run() {
+            // check for any outdated data and remove them
+            for (CacheObject c : data) {
+                if (c.lastAccess + timeout * 1000 < System.currentTimeMillis()) {
+                    data.remove(c);
+                }
+            }
+        }
+    }
+
     /**
      * Add a value to the cache.
      * If the cache is full then remove the least recently accessed object to
      * make room for the new object.
      */
     public boolean put(T t) {
-        // TODO: implement this method
+        CacheObject<T> val = new CacheObject<>(t);
+
+        if (data.contains(val)) {
+            touch(t.id());
+        } else if (data.size() >= capacity) {
+            removeLeastRequested();
+            data.add(val);
+        } else {
+            data.add(val);
+            return true;
+        }
+
         return false;
     }
 
@@ -44,12 +80,17 @@ public class Cache<T extends Cacheable> {
      * @param id the identifier of the object to be retrieved
      * @return the object that matches the identifier from the cache
      */
-    public T get(String id) {
-        /* TODO: change this */
-        /* Do not return null. Throw a suitable checked exception when an object
-            is not in the cache. */
+    public T get(String id) throws NoSuchCacheElementException {
+        for (CacheObject c : this.data) {
+            if (c.t.id().equals(id)) {
+                touch(c.t.id());
+                c.numRequests++;
 
-        return null;
+                return (T) c.t;
+            }
+        }
+
+        throw new NoSuchCacheElementException();
     }
 
     /**
@@ -61,8 +102,28 @@ public class Cache<T extends Cacheable> {
      * @return true if successful and false otherwise
      */
     public boolean touch(String id) {
-        /* TODO: Implement this method */
+        for (CacheObject c : this.data) {
+            if (c.t.id().equals(id)) {
+                c.lastAccess = System.currentTimeMillis();
+                return true;
+            }
+        }
+
         return false;
+    }
+
+    // assumes data has at least 1 element
+    private void removeLeastRequested() {
+        CacheObject<T> least = null;
+        int leastRequests = Integer.MAX_VALUE;
+        for (CacheObject<T> c : this.data) {
+            if (c.numRequests < leastRequests) {
+                least = c;
+                leastRequests = c.numRequests;
+            }
+        }
+
+        this.data.remove(least);
     }
 
     /**
@@ -74,8 +135,35 @@ public class Cache<T extends Cacheable> {
      * @return true if successful and false otherwise
      */
     public boolean update(T t) {
-        /* TODO: implement this method */
-        return false;
+        return touch(t.id());
+    }
+
+    private class CacheObject<S extends T> {
+        private T t;
+        private long lastAccess;
+        private int numRequests;
+
+        private CacheObject(T t) {
+            this.t = t;
+            this.lastAccess = System.currentTimeMillis();
+            numRequests = 0;
+        }
+
+        @Override
+        public int hashCode() {
+            return t.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o instanceof CacheObject) {
+                CacheObject c = (CacheObject<?>) o;
+                if (this.t.equals(c.t)) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
 }

@@ -1,5 +1,7 @@
 package cpen221.mp3.server;
 
+import cpen221.mp3.cache.Cache;
+
 public class WikiMediatorServer {
 
     /**
