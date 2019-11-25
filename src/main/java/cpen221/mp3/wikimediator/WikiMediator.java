@@ -1,5 +1,6 @@
 package cpen221.mp3.wikimediator;
 
+import cpen221.mp3.cache.Cache;
 import fastily.jwiki.core.Wiki;
 
 import java.util.ArrayList;
@@ -19,7 +20,18 @@ public class WikiMediator {
 
      */
 
+    // do not need to store cache locally, only statistics (Q # 1670)
+
+    private final static int CACHE_CAPACITY = 256;
+    private final static int CACHE_TIMEOUT = 12 * 60 * 60;  // 12 hours
+
+
     private Wiki wiki = new Wiki("en.wikipedia.org");
+    private Cache<Page> cache;
+
+    public WikiMediator() {
+        this.cache = new Cache<>(CACHE_CAPACITY, CACHE_TIMEOUT);
+    }
 
     /**
      * Given a `query`, return up to `limit` page titles that match the

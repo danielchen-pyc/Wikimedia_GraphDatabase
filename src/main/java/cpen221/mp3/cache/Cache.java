@@ -4,7 +4,7 @@ import java.util.HashSet;
 
 public class Cache <T extends Cacheable> {
 
-    // TODO - concurrency - make cache automatically remove outdated data, be thread safe
+    //TODO - specs, comments, RI, AF, thread safety conditions
 
     // assume each item has a unique id
 
@@ -31,7 +31,6 @@ public class Cache <T extends Cacheable> {
         this.capacity = capacity;
         this.timeout = timeout;
         this.data = new HashSet<>(this.capacity);
-        // run a CacheHandler
     }
 
     /**
@@ -39,20 +38,6 @@ public class Cache <T extends Cacheable> {
      */
     public Cache() {
         this(DSIZE, DTIMEOUT);
-    }
-
-    // maybe this is the right way to do things? idk - for now, not implemented
-    private class CacheHandler implements Runnable {
-
-        @Override
-        public void run() {
-            // check for any outdated data and remove them
-            for (CacheObject c : data) {
-                if (c.lastAccess + timeout * 1000 < System.currentTimeMillis()) {
-                    data.remove(c);
-                }
-            }
-        }
     }
 
     /**
@@ -63,6 +48,7 @@ public class Cache <T extends Cacheable> {
     public boolean put(T t) {
         CacheObject<T> val = new CacheObject<>(t);
 
+        expire();
         if (data.contains(val)) {
             touch(t.id());
         } else if (data.size() >= capacity) {
@@ -81,6 +67,7 @@ public class Cache <T extends Cacheable> {
      * @return the object that matches the identifier from the cache
      */
     public T get(String id) throws NoSuchCacheElementException {
+        expire();
         for (CacheObject c : this.data) {
             if (c.t.id().equals(id)) {
                 touch(c.t.id());
@@ -102,6 +89,7 @@ public class Cache <T extends Cacheable> {
      * @return true if successful and false otherwise
      */
     public boolean touch(String id) {
+        expire();
         for (CacheObject c : this.data) {
             if (c.t.id().equals(id)) {
                 c.lastAccess = System.currentTimeMillis();
@@ -110,6 +98,18 @@ public class Cache <T extends Cacheable> {
         }
 
         return false;
+    }
+
+    /**
+     * Update an object in the cache.
+     * This method updates an object and acts like a "touch" to renew the
+     * object in the cache.
+     *
+     * @param t the object to update
+     * @return true if successful and false otherwise
+     */
+    public boolean update(T t) {
+        return touch(t.id());
     }
 
     // assumes data has at least 1 element
@@ -126,16 +126,12 @@ public class Cache <T extends Cacheable> {
         this.data.remove(least);
     }
 
-    /**
-     * Update an object in the cache.
-     * This method updates an object and acts like a "touch" to renew the
-     * object in the cache.
-     *
-     * @param t the object to update
-     * @return true if successful and false otherwise
-     */
-    public boolean update(T t) {
-        return touch(t.id());
+    private void expire() {
+        for (CacheObject<T> c : this.data) {
+            if (c.lastAccess + this.timeout * 1000 < System.currentTimeMillis()) {
+                this.data.remove(c);
+            }
+        }
     }
 
     private class CacheObject<S extends T> {

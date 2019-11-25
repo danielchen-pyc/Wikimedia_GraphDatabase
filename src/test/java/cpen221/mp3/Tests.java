@@ -1,5 +1,8 @@
 package cpen221.mp3;
 
+import cpen221.mp3.cache.Cache;
+import org.junit.Test;
+
 public class Tests {
 
     /*
