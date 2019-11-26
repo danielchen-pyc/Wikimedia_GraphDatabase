@@ -45,7 +45,7 @@ public class Cache <T extends Cacheable> {
      * If the cache is full then remove the least recently accessed object to
      * make room for the new object.
      */
-    public boolean put(T t) {
+    public synchronized boolean put(T t) {
         CacheObject<T> val = new CacheObject<>(t);
 
         expire();
@@ -66,7 +66,7 @@ public class Cache <T extends Cacheable> {
      * @param id the identifier of the object to be retrieved
      * @return the object that matches the identifier from the cache
      */
-    public T get(String id) throws NoSuchCacheElementException {
+    public synchronized T get(String id) throws NoSuchCacheElementException {
         expire();
         for (CacheObject c : this.data) {
             if (c.t.id().equals(id)) {
@@ -88,7 +88,7 @@ public class Cache <T extends Cacheable> {
      * @param id the identifier of the object to "touch"
      * @return true if successful and false otherwise
      */
-    public boolean touch(String id) {
+    public synchronized boolean touch(String id) {
         expire();
         for (CacheObject c : this.data) {
             if (c.t.id().equals(id)) {
@@ -108,12 +108,23 @@ public class Cache <T extends Cacheable> {
      * @param t the object to update
      * @return true if successful and false otherwise
      */
-    public boolean update(T t) {
-        return touch(t.id());
+    public synchronized boolean update(T t) {
+        CacheObject<T> updatedItem = new CacheObject<>(t);
+        boolean updated = false;
+
+        for (CacheObject<T> c : this.data) {
+            if (c.equals(updatedItem)) {
+                c = updatedItem;
+                updated = true;
+                break;
+            }
+        }
+
+        return updated;
     }
 
     // assumes data has at least 1 element
-    private void removeLeastRequested() {
+    private synchronized void removeLeastRequested() {
         CacheObject<T> least = null;
         int leastRequests = Integer.MAX_VALUE;
         for (CacheObject<T> c : this.data) {
@@ -126,7 +137,7 @@ public class Cache <T extends Cacheable> {
         this.data.remove(least);
     }
 
-    private void expire() {
+    private synchronized void expire() {
         for (CacheObject<T> c : this.data) {
             if (c.lastAccess + this.timeout * 1000 < System.currentTimeMillis()) {
                 this.data.remove(c);
@@ -148,14 +159,14 @@ public class Cache <T extends Cacheable> {
 
         @Override
         public int hashCode() {
-            return t.hashCode();
+            return t.id().hashCode();
         }
 
         @Override
         public boolean equals(Object o) {
             if (o instanceof CacheObject) {
                 CacheObject c = (CacheObject<?>) o;
-                if (this.t.equals(c.t)) {
+                if (this.t.id().equals(c.t.id())) {
                     return true;
                 }
             }
