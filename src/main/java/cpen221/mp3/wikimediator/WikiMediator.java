@@ -20,9 +20,19 @@ public class WikiMediator {
         values like null.
      */
 
+    // do not need to store cache locally, only statistics (Q # 1670)
+
+    private final static int CACHE_CAPACITY = 256;
+    private final static int CACHE_TIMEOUT = 12 * 60 * 60;  // 12 hours
+
+
     private Cache<Cacheable> c = new Cache<>();
     private HashSet<CacheObject> data = new HashSet<>();
     private Wiki wiki = new Wiki("en.wikipedia.org");
+
+    public WikiMediator() {
+        Cache<Cacheable> cache = new Cache<>(CACHE_CAPACITY, CACHE_TIMEOUT);
+    }
 
     /**
      * Given a `query`, return up to `limit` page titles that match the
