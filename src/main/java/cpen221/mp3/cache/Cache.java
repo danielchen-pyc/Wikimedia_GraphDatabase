@@ -9,10 +9,10 @@ public class Cache <T extends Cacheable> {
     // assume each item has a unique id
 
     /* the default cache size is 32 objects */
-    public static final int DSIZE = 32;
+    private static final int DSIZE = 32;
 
     /* the default timeout value is 3600s */
-    public static final int DTIMEOUT = 3600;
+    private static final int DTIMEOUT = 3600;
 
     private HashSet<CacheObject<T>> data;
     private int capacity;
@@ -137,6 +137,7 @@ public class Cache <T extends Cacheable> {
     public boolean update(T t) {
         return touch(t.id());
     }
+
 
     private class CacheObject<S extends T> {
         private T t;
