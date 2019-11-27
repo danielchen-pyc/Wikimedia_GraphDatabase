@@ -19,4 +19,21 @@ public class Page implements Cacheable {
     public String getPageText() {
         return pageText;
     }
+
+    @Override
+    public int hashCode() {
+        return id.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof Page) {
+            Page p = (Page) o;
+            if (this.id.equals(p.id)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
