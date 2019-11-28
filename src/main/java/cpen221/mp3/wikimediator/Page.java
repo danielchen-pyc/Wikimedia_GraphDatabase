@@ -29,7 +29,7 @@ public class Page implements Cacheable {
     public boolean equals(Object o) {
         if (o instanceof Page) {
             Page p = (Page) o;
-            if (this.id.equals(p.id)) {
+            if (this.id.equals(p.id) && this.pageText.equals(p.pageText)) {
                 return true;
             }
         }

@@ -15,4 +15,9 @@ public class Tests {
     //      class we test (Cache, WikiMediator, etc), and call them from here
     //      (idk how to do that, but shouldn't be hard)
 
+    public void runTests() {
+        CacheTest cacheTest = new CacheTest();
+        // run all tests
+    }
+
 }
