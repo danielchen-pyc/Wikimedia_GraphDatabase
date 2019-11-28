@@ -4,7 +4,7 @@ import java.util.HashSet;
 
 public class Cache <T extends Cacheable> {
 
-    //TODO - specs, comments, RI, AF, thread safety conditions
+    //TODO - thread safety conditions
 
     // assume each item has a unique id
 
@@ -17,6 +17,35 @@ public class Cache <T extends Cacheable> {
     private HashSet<CacheObject<T>> data;
     private int capacity;
     private int timeout;
+
+    /*
+     * Cache Rep Invariants
+     *
+     * capacity >= 0
+     * timeout >= 0
+     * data is not null and does not contain null elements
+     *
+     * CacheObject Rep Invariants
+     *
+     * t is not null
+     * lastAccess >= 0
+     * numRequests >= 0
+     *
+     * Cache Abstraction Functions
+     *
+     * data -> a set of the elements stored in the cache
+     * capacity -> the maximum number of total elements allowed in the cache at
+     *             any given instant
+     * timeout  -> the maximum amount of time an element is allowed to stay in
+     *             the cache without being accessed before being removed
+     *
+     * CacheObject Abstraction Functions
+     *
+     * t -> a value/element stored in the cache
+     * lastAccess  -> the time of the most recent request for the value/element
+     * munRequests -> the total number of times this value/element has been
+     *                requested from the cache
+     */
 
     /**
      * Create a cache with a fixed capacity and a timeout value.
@@ -59,13 +88,13 @@ public class Cache <T extends Cacheable> {
         val.numRequests++;
 
         expire();
-        if (data.contains(val)) {
+        if (this.data.contains(val)) {
             return update(t);
-        } else if (data.size() >= capacity) {
+        } else if (this.data.size() >= this.capacity) {
             removeLeastRequested();
-            return capacity == 0 ? false : this.data.add(val);
+            return this.capacity == 0 ? false : this.data.add(val);
         } else {
-            return data.add(val);
+            return this.data.add(val);
         }
     }
 
@@ -120,10 +149,9 @@ public class Cache <T extends Cacheable> {
      */
     public synchronized boolean update(T t) {
         HashSet<CacheObject<T>> values = new HashSet<>(this.data);
-
         CacheObject<T> updatedItem = new CacheObject<>(t);
-        boolean updated = false;
 
+        boolean updated = false;
         for (CacheObject<T> c : values) {
             if (c.equals(updatedItem)) {
                 updatedItem.numRequests = c.numRequests;

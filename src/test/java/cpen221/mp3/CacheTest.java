@@ -338,14 +338,14 @@ public class CacheTest {
                         System.out.println("Hello");
 
                         Page result = null;
-                        //try {
+                        try {
                             //System.out.println(Thread.currentThread().getName() + " got: "
                         // + ", j = " + Integer.toString(j));
                             result = c.get(p.id());
                         System.out.println("Hello2");
                             System.out.println(Thread.currentThread().getName() + " got: "
                                     + result.toString() + ", j = " + Integer.toString(j));
-                        /*} catch (NoSuchCacheElementException e) {
+                        } catch (NoSuchCacheElementException e) {
                             System.out.println("ERROR!! " + e.getMessage());
                             //fail("Should not be an exception");
                         } finally {
@@ -355,7 +355,7 @@ public class CacheTest {
                             }
                         }
 
-                         */
+
 
                         if (result == null) {
                             //fail("Should not be null");
