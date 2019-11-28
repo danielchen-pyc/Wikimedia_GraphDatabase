@@ -4,6 +4,7 @@ import fastily.jwiki.core.Wiki;
 import fastily.jwiki.dwrap.Revision;
 
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 /*
     A very simple example that illustrates how one can use the
@@ -32,4 +33,6 @@ public class JWiki {
 //        }
         System.exit(0);
     }
+
+    ConcurrentHashMap c = new ConcurrentHashMap();
 }

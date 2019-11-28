@@ -82,7 +82,20 @@ public class WikiMediator {
      */
     public List<String> getConnectedPages(String pageTitle, int hops) {
 
-        return null;
+        return recursiveGetConnected(new ArrayList<>(), pageTitle, hops);
+    }
+
+
+    private ArrayList<String> recursiveGetConnected(ArrayList<String> listOfAllTitles, String pageTitle, int hops) {
+        if (hops == 0) {
+            return listOfAllTitles;
+        } else {
+            for (int i = 0; i < wiki.getLinksOnPage(true, pageTitle).size(); i++) {
+                listOfAllTitles.addAll(wiki.getLinksOnPage(true, wiki.getLinksOnPage(true, pageTitle).get(i)));
+                recursiveGetConnected(listOfAllTitles, wiki.getLinksOnPage(true, pageTitle).get(i), --hops);
+            }
+            return listOfAllTitles;
+        }
     }
 
     /**
