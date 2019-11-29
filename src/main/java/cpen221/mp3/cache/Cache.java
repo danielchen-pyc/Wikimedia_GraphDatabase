@@ -42,9 +42,8 @@ public class Cache <T extends Cacheable> {
      * CacheObject Abstraction Functions
      *
      * t -> a value/element stored in the cache
-     * lastAccess  -> the time of the most recent request for the value/element
-     * munRequests -> the total number of times this value/element has been
-     *                requested from the cache
+     * lastUpdated -> the time the value was most recently updated
+     * lastAccessed -> the time the value was most recently accessed
      */
 
     /**
@@ -85,13 +84,13 @@ public class Cache <T extends Cacheable> {
      */
     public synchronized boolean put(T t) {
         CacheObject<T> val = new CacheObject<>(t);
-        val.numRequests++;
+        val.lastAccessed++;
 
         expire();
         if (this.data.contains(val)) {
             return update(t);
         } else if (this.data.size() >= this.capacity) {
-            removeLeastRequested();
+            removeLeastRecentlyRequested();
             return this.capacity == 0 ? false : this.data.add(val);
         } else {
             return this.data.add(val);
@@ -99,7 +98,7 @@ public class Cache <T extends Cacheable> {
     }
 
     /**
-     * Retrieve a value from the cache
+     * Retrieve a value from the cache.
      *
      * @param id the identifier of the object to be retrieved
      * @return the value that matches the identifier from the cache
@@ -110,8 +109,7 @@ public class Cache <T extends Cacheable> {
         expire();
         for (CacheObject<T> c : this.data) {
             if (c.t.id().equals(id)) {
-                c.lastAccess = System.currentTimeMillis();
-                c.numRequests++;
+                c.lastAccessed++;
                 return c.t;
             }
         }
@@ -121,8 +119,7 @@ public class Cache <T extends Cacheable> {
 
     /**
      * Update the last refresh time for the object with the provided id.
-     * This method is used to mark an object as "not stale" so that its timeout
-     * is delayed.
+     * Does not count as accessing the object.
      *
      * @param id the identifier of the object to "touch"
      * @return true if successful and false otherwise
@@ -131,7 +128,7 @@ public class Cache <T extends Cacheable> {
         expire();
         for (CacheObject c : this.data) {
             if (c.t.id().equals(id)) {
-                c.lastAccess = System.currentTimeMillis();
+                c.lastUpdated = System.currentTimeMillis();
                 return true;
             }
         }
@@ -140,9 +137,8 @@ public class Cache <T extends Cacheable> {
     }
 
     /**
-     * Update an object in the cache.
-     * This method updates an object and acts like a "touch" to renew the
-     * object in the cache.
+     * Update the data held by and creation time of the specified object
+     * in the cache. Does not count as accessing the object.
      *
      * @param t the object to update
      * @return true if successful and false otherwise
@@ -154,7 +150,7 @@ public class Cache <T extends Cacheable> {
         boolean updated = false;
         for (CacheObject<T> c : values) {
             if (c.equals(updatedItem)) {
-                updatedItem.numRequests = c.numRequests;
+                updatedItem.lastAccessed = c.lastAccessed;
                 this.data.remove(c);
                 this.data.add(updatedItem);
                 updated = true;
@@ -166,20 +162,20 @@ public class Cache <T extends Cacheable> {
     }
 
     /**
-     * Remove the least requested value in the cache, if
+     * Remove the least recently requested value in the cache, if
      * one exists.
      */
-    private synchronized void removeLeastRequested() {
+    private synchronized void removeLeastRecentlyRequested() {
         if (this.data.isEmpty()) {
             return;
         }
 
         CacheObject<T> least = null;
-        int leastRequests = Integer.MAX_VALUE;
+        long leastRecentlyRequested = Long.MAX_VALUE;
         for (CacheObject<T> c : this.data) {
-            if (c.numRequests < leastRequests) {
+            if (c.lastAccessed < leastRecentlyRequested) {
                 least = c;
-                leastRequests = c.numRequests;
+                leastRecentlyRequested = c.lastAccessed;
             }
         }
 
@@ -193,7 +189,7 @@ public class Cache <T extends Cacheable> {
     private synchronized void expire() {
         HashSet<CacheObject<T>> values = new HashSet<>(this.data);
         for (CacheObject<T> c : values) {
-            if (c.lastAccess + this.timeout * 1000 < System.currentTimeMillis()) {
+            if (c.lastUpdated + this.timeout * 1000 < System.currentTimeMillis()) {
                 this.data.remove(c);
             }
         }
@@ -205,8 +201,8 @@ public class Cache <T extends Cacheable> {
      */
     private class CacheObject<S extends T> {
         private T t;
-        private long lastAccess;
-        private int numRequests;
+        private long lastUpdated;
+        private long lastAccessed;
 
         /**
          * Create a CacheObject
@@ -215,8 +211,8 @@ public class Cache <T extends Cacheable> {
          */
         private CacheObject(T t) {
             this.t = t;
-            this.lastAccess = System.currentTimeMillis();
-            numRequests = 0;
+            this.lastUpdated = System.currentTimeMillis();
+            this.lastAccessed = System.currentTimeMillis();
         }
 
         /**
