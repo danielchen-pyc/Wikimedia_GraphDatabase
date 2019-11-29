@@ -3,21 +3,14 @@ package cpen221.mp3.wikimediator;
 import cpen221.mp3.cache.Cache;
 import cpen221.mp3.cache.Cacheable;
 import fastily.jwiki.core.Wiki;
-
 import java.util.*;
 import java.util.stream.Collectors;
 
 public class WikiMediator {
 
-    /* TODO: Implement this datatype
-
-        You must implement the methods with the exact signatures
-        as provided in the statement for this mini-project.
-
-        You must add method signatures even for the methods that you
-        do not plan to implement. You should provide skeleton implementation
-        for those methods, and the skeleton implementation could return
-        values like null.
+    /**
+     *
+     *
      */
 
     // do not need to store cache locally, only statistics (Q # 1670)
@@ -25,13 +18,14 @@ public class WikiMediator {
     private final static int CACHE_CAPACITY = 256;
     private final static int CACHE_TIMEOUT = 12 * 60 * 60;  // 12 hours
 
-
-    private Cache<Cacheable> c = new Cache<>();
-    private HashSet<CacheObject> data = new HashSet<>();
     private Wiki wiki = new Wiki("en.wikipedia.org");
+    private LinkedHashMap<String, Long> methodList = new LinkedHashMap<>();
+    private List<CacheObject> cacheObjects = new ArrayList<>();
+    private Cache<Page> cache;
+
 
     public WikiMediator() {
-        Cache<Cacheable> cache = new Cache<>(CACHE_CAPACITY, CACHE_TIMEOUT);
+        cache = new Cache<>(CACHE_CAPACITY, CACHE_TIMEOUT);
     }
 
     /**
@@ -43,14 +37,13 @@ public class WikiMediator {
      * @return
      */
     public List<String> simpleSearch(String query, int limit) {
-        ArrayList<String> titles = wiki.search(query, limit);
         ArrayList<String> listOfSearch = new ArrayList<>();
-        CacheObject<String> s = new CacheObject<>(query);
 
-        this.c.put(s);
-        this.data.add(s);
+        this.cacheObjects.add(new CacheObject<>(query));
+        this.methodList.put("simpleSearch", System.currentTimeMillis());
+        this.cache.put(new Page(wiki.getPageText(query), query));
 
-        for (String title: titles) {
+        for (String title: wiki.search(query, limit)) {
             listOfSearch.add(getPage(title));
         }
 
@@ -65,11 +58,13 @@ public class WikiMediator {
      * @return
      */
     public String getPage(String pageTitle) {
-        CacheObject<String> page = new CacheObject<>(pageTitle);
-        this.c.put(page);
-        this.data.add(page);
+        Page page = new Page(wiki.getPageText(pageTitle), pageTitle);
 
-        return wiki.getPageText(pageTitle);
+        this.cacheObjects.add(new CacheObject<>(pageTitle));
+        this.methodList.put("getPage", System.currentTimeMillis());
+        this.cache.put(page);
+
+        return page.getPageText();
     }
 
     /**
@@ -82,17 +77,26 @@ public class WikiMediator {
      */
     public List<String> getConnectedPages(String pageTitle, int hops) {
 
+        this.methodList.put("getConnectedPages", System.currentTimeMillis());
+
         return recursiveGetConnected(new ArrayList<>(), pageTitle, hops);
     }
 
 
     private ArrayList<String> recursiveGetConnected(ArrayList<String> listOfAllTitles, String pageTitle, int hops) {
-        if (hops == 0) {
+        if (hops <= 0) {
             return listOfAllTitles;
         } else {
             for (int i = 0; i < wiki.getLinksOnPage(true, pageTitle).size(); i++) {
-                listOfAllTitles.addAll(wiki.getLinksOnPage(true, wiki.getLinksOnPage(true, pageTitle).get(i)));
-                recursiveGetConnected(listOfAllTitles, wiki.getLinksOnPage(true, pageTitle).get(i), --hops);
+                listOfAllTitles.addAll(wiki.getLinksOnPage(true, pageTitle)
+                                .stream()
+                                .filter(x -> !listOfAllTitles.contains(x))
+                                .collect(Collectors.toList()));
+                listOfAllTitles
+                        .addAll(recursiveGetConnected(listOfAllTitles, wiki.getLinksOnPage(true, pageTitle).get(i), --hops)
+                        .stream()
+                        .filter(x -> !listOfAllTitles.contains(x))
+                        .collect(Collectors.toList()));
             }
             return listOfAllTitles;
         }
@@ -107,16 +111,18 @@ public class WikiMediator {
      * @return
      */
     public List<String> zeitgeist(int limit) {
-        List<CacheObject> list = new ArrayList<>(this.data);
+        List<CacheObject> list = new ArrayList<>(this.cacheObjects);
         List<String> listOfStrings = new ArrayList<>();
 
-        for (CacheObject c: this.data) {
+        this.methodList.put("zeitgeist", System.currentTimeMillis());
+
+        for (CacheObject c: this.cacheObjects) {
             if (list.contains(c)) {
-                int max = this.data.stream()
+                int max = this.cacheObjects.stream()
                         .map(x -> x.numRequests)
                         .max(Integer::compareTo)
                         .get();
-                List<CacheObject> stringsCommon = this.data.stream()
+                List<CacheObject> stringsCommon = this.cacheObjects.stream()
                         .filter(x -> x.numRequests == max)
                         .collect(Collectors.toList());
 
@@ -148,16 +154,16 @@ public class WikiMediator {
      * @return
      */
     public List<String> trending(int limit) {
-        List<CacheObject> list = new ArrayList<>(this.data);
+        List<CacheObject> list = new ArrayList<>(this.cacheObjects);
         List<String> listOfStrings = new ArrayList<>();
 
-        for (CacheObject c: this.data) {
+        for (CacheObject c: this.cacheObjects) {
             if (list.contains(c)) {
-                int max = this.data.stream()
+                int max = this.cacheObjects.stream()
                         .map(x -> x.numRequests)
                         .max(Integer::compareTo)
                         .get();
-                List<CacheObject> stringsCommon = this.data.stream()
+                List<CacheObject> stringsCommon = this.cacheObjects.stream()
                         .filter(x -> System.currentTimeMillis() - x.lastAccess <= 30 * 1000)
                         .filter(x -> x.numRequests == max)
                         .collect(Collectors.toList());
@@ -190,25 +196,25 @@ public class WikiMediator {
     public int peakLoad30s() {
         int max = Integer.MIN_VALUE;
 
-        for (CacheObject c: this.data) {
-            if (getCacheInInterval(c.lastAccess, c.lastAccess + 30 * 1000).size() > max) {
-                max = getCacheInInterval(c.lastAccess, c.lastAccess + 30 * 1000).size();
+        for (int i = 0; i < this.methodList.size(); i++) {
+            if (getCallsInInterval(this.methodList.get(i), this.methodList.get(i) + 30 * 1000) > max) {
+                max = getCallsInInterval(this.methodList.get(i), this.methodList.get(i) + 30 * 1000);
             }
         }
 
         return max;                                     //finished this method but haven't tested, might be buggy
     }
 
-    private List<CacheObject> getCacheInInterval(long start, long end) {
-        List<CacheObject> cacheInInterval = new ArrayList<>();
+    private int getCallsInInterval(long start, long end) {
+        int callsCount = 0;
 
-        for (CacheObject c: this.data) {
-            if (c.lastAccess >= start && c.lastAccess <= end) {
-                cacheInInterval.add(c);
+        for (int count = 0; count < this.methodList.size(); count++) {
+            if (this.methodList.get(count) >= start && this.methodList.get(count) <= end) {
+                callsCount++;
             }
         }
 
-        return cacheInInterval;
+        return callsCount;
     }
 
 
@@ -220,7 +226,15 @@ public class WikiMediator {
         private CacheObject(String s) {
             this.s = s;
             this.lastAccess = System.currentTimeMillis();
-            numRequests = 0;
+            this.numRequests = 0;
+        }
+
+        public int getNumRequests(String s) {
+            return this.numRequests;
+        }
+
+        public void setNumRequests(String s) {
+            this.numRequests++;
         }
 
         @Override

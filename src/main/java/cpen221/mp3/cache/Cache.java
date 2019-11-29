@@ -10,7 +10,7 @@ public class Cache <T extends Cacheable> {
     /* the default timeout value is 3600s */
     public static final int DTIMEOUT = 3600;
 
-    private HashSet<CacheObject<T>> data;
+    private HashSet<CacheObject<T>> data;   //should we change it to concurrentHashSet?
     private int capacity;
     private int timeout;
 
