@@ -4,10 +4,6 @@ import java.util.HashSet;
 
 public class Cache <T extends Cacheable> {
 
-    //TODO - thread safety conditions
-
-    // assume each item has a unique id
-
     /* the default cache size is 32 objects */
     public static final int DSIZE = 32;
 
