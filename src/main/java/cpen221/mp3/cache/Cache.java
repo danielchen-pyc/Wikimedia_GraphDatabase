@@ -10,24 +10,27 @@ public class Cache <T extends Cacheable> {
     /* the default timeout value is 3600s */
     private static final int DTIMEOUT = 3600;
 
-    private int capacity;
-    private int timeout;
+    private final int capacity;
+    private final int timeout;
 
     private ConcurrentHashMap<CacheObject<T>, Boolean> data;
     private final long t0 = System.nanoTime();
 
-    /*
+    /**
      * Cache Rep Invariants
      *
      * capacity >= 0
      * timeout >= 0
      * data is not null and does not contain null elements
+     * t0 >= 0
      *
      * CacheObject Rep Invariants
      *
      * t is not null
      * lastAccessed >= 0
      * lastUpdated >= 0
+     *
+     * ---------------------------------------------------------------------------
      *
      * Cache Abstraction Functions
      *

@@ -89,6 +89,7 @@ public class WikiMediator {
         this.cacheObjects.add(new CacheObject<>(query));
         this.methodList.put("simpleSearch", currentTime());
 
+        // TODO - use the cache
         for (String title: wiki.search(query, limit)) {
             listOfSearch.add(getPage(title));
             this.cache.put(new Page(wiki.getPageText(title), title));
@@ -117,6 +118,7 @@ public class WikiMediator {
 
         Page page = new Page(wiki.getPageText(pageTitle), pageTitle);
 
+        // TODO - use the cache
         this.cacheObjects.add(new CacheObject<>(pageTitle));
         this.methodList.put("getPage", currentTime());
         this.cache.put(page);
@@ -161,6 +163,7 @@ public class WikiMediator {
         if (hops <= 0) {
             return listOfAllTitles;
         } else {
+            // TODO - use the cache? - might be hard to get links
             for (int i = 0; i < wiki.getLinksOnPage(true, pageTitle).size(); i++) {
                 listOfAllTitles.addAll(wiki.getLinksOnPage(true, pageTitle)
                                 .stream()
@@ -396,7 +399,7 @@ public class WikiMediator {
      * @return a list of all page titles that match the query
      * @throws InvalidQueryException if query cannot be parsed
      */
-    public List<String> excuteQuery(String query) throws InvalidQueryException { //TODO - check campuswire to see if typo
+    public List<String> executeQuery(String query) throws InvalidQueryException {
         /*
          * idea for how to do this
          * 1. parse query and pass the CONDITION to executeCondition()
