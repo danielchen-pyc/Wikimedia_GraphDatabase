@@ -23,7 +23,7 @@ public class WikiMediator {
      * lastAccess >= 0
      * numRequests >= 0
      *
-     * ----------------------------------------------------------------------
+     * ---------------------------------------------------------------------------
      * WikiMediator Abstract Functions
      *
      * wiki -> an instance of Wiki class for WikiMediator to use
