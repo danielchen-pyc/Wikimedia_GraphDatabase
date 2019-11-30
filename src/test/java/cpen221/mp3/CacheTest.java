@@ -328,43 +328,40 @@ public class CacheTest {
 
         for (int i = 0; i < 10; i++) {
             int id = i;
-            Thread t = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    Page p = new Page("test", Integer.toString(id));
-                    for (int j = 0; j < 100; j++) {
-                        c.put(p);
+            Thread t = new Thread(() -> {
+                Page p = new Page("test", Integer.toString(id));
+                for (int j = 0; j < 100; j++) {
+                    c.put(p);
 
-                        System.out.println("Hello");
+                    System.out.println("Hello");
 
-                        Page result = null;
-                        try {
-                            //System.out.println(Thread.currentThread().getName() + " got: "
-                        // + ", j = " + Integer.toString(j));
-                            result = c.get(p.id());
+                    Page result = null;
+                    try {
+                        //System.out.println(Thread.currentThread().getName() + " got: "
+                    // + ", j = " + Integer.toString(j));
+                        result = c.get(p.id());
                         System.out.println("Hello2");
-                            System.out.println(Thread.currentThread().getName() + " got: "
-                                    + result.toString() + ", j = " + Integer.toString(j));
-                        } catch (NoSuchCacheElementException e) {
-                            System.out.println("ERROR!! " + e.getMessage());
-                            //fail("Should not be an exception");
-                        } finally {
-                            if (result == null) {
-                                //fail("Should not be null");
-                                System.out.println("ERROR!! 44 ");
-                            }
-                        }
-
-
-
+                        System.out.println(Thread.currentThread().getName() + " got: "
+                                + result.toString() + ", j = " + Integer.toString(j));
+                    } catch (NoSuchCacheElementException e) {
+                        System.out.println("ERROR!! " + e.getMessage());
+                        //fail("Should not be an exception");
+                    } finally {
                         if (result == null) {
                             //fail("Should not be null");
                             System.out.println("ERROR!! 44 ");
                         }
-
-                        //System.out.println(Thread.currentThread().getName() + " got: "
-                        // + result.toString() + ", j = " + Integer.toString(j));
                     }
+
+
+
+                    if (result == null) {
+                        //fail("Should not be null");
+                        System.out.println("ERROR!! 44 ");
+                    }
+
+                    //System.out.println(Thread.currentThread().getName() + " got: "
+                    // + result.toString() + ", j = " + Integer.toString(j));
                 }
             });
 

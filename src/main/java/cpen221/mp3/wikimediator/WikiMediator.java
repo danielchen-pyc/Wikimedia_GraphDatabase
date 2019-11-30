@@ -9,12 +9,42 @@ import java.util.stream.Collectors;
 public class WikiMediator {
 
     /**
+     * WikiMediator Rep Invariant
+     *
+     * wiki is not null
+     * methodList is not null and does not contain null elements
+     * cacheObjects is not null and does not contain null elements
+     * cache is not null and does not contain null elements
      *
      *
+     * CacheObject Rep Invariant
+     *
+     * s is not null
+     * lastAccess >= 0
+     * numRequests >= 0
+     *
+     * ----------------------------------------------------------------------
+     * WikiMediator Abstract Functions
+     *
+     * wiki -> an instance of Wiki class for WikiMediator to use
+     * methodList -> a linked HashMap that takes the function name string as key
+     *               and the time that this method is being called
+     * cacheObjects -> a list that stores cacheObjects, which is titles, that
+     *                 allows methods to call them when needed
+     * cache -> a cache that stores Page, the time that such Page is last
+     *          accessed, and the number of times such Page has been accessed
+     *
+     *
+     * CacheObject Abstraction Functions
+     *
+     * s -> a string stored in the cache
+     * lastUpdated -> the time the string was most recently updated
+     * lastAccessed -> the time the string was most recently accessed
      */
 
     private final static int CACHE_CAPACITY = 256;
     private final static int CACHE_TIMEOUT = 12 * 60 * 60;  // 12 hours
+    private final long startTime = System.nanoTime();
 
     private Wiki wiki = new Wiki("en.wikipedia.org");
     private LinkedHashMap<String, Long> methodList = new LinkedHashMap<>();
@@ -22,65 +52,111 @@ public class WikiMediator {
     private Cache<Page> cache;
 
 
+    /**
+     * Create a WikiMediator that has a new cache with cache capacity 256,
+     * and timeout value of 12 hours
+     */
     public WikiMediator() {
         cache = new Cache<>(CACHE_CAPACITY, CACHE_TIMEOUT);
     }
 
+
+    /**
+     * Get the time since the cache was created.
+     *
+     * @return the number of nanoseconds since the cache was created.
+     */
+    private synchronized long currentTime() {
+        return System.nanoTime() - startTime;
+    }
+
+
     /**
      * Given a `query`, return up to `limit` page titles that match the
      * query string (per Wikipedia's search service).
+     * Creates a cacheObject that represents 'query' and store it in cacheObjects
+     * Store the method name "simpleSearch" in the methodList with the current time stamp
+     * For every title that matches the specified query, create a page, which contains its
+     * title and the entire text, and store it in the cache
      *
-     * @param query
-     * @param limit
-     * @return
+     * @param query the string that is being searched
+     * @param limit the maximum number of titles that is required to search
+     * @return a list that stores up to 'limit' amount of page contents whose title matches the 'query'
      */
     public List<String> simpleSearch(String query, int limit) {
         ArrayList<String> listOfSearch = new ArrayList<>();
 
         this.cacheObjects.add(new CacheObject<>(query));
-        this.methodList.put("simpleSearch", System.currentTimeMillis());
-        this.cache.put(new Page(wiki.getPageText(query), query));
+        this.methodList.put("simpleSearch", currentTime());
 
         for (String title: wiki.search(query, limit)) {
             listOfSearch.add(getPage(title));
+            this.cache.put(new Page(wiki.getPageText(title), title));
         }
 
         return listOfSearch;
     }
 
+
     /**
      * Given a `pageTitle`, return the text associated with the Wikipedia
-     * page that matches `pageTitle`.
+     * page that matches `pageTitle`. If no titles matches, return an empty string.
+     * Creates a cacheObject that represents 'pageTitle' and store it in cacheObjects
+     * Store the method name "getPage" in the methodList with the current time stamp
+     * Create a new Page, which contains the title and the entire content, and store it in cache
      *
-     * @param pageTitle
-     * @return
+     * @param pageTitle the page title that we are getting the page text from
+     * @return the entire page text
+     * @throws IllegalArgumentException if page title is an empty string
      */
     public String getPage(String pageTitle) {
+
+        if (pageTitle.equals("")) {
+            throw new IllegalArgumentException("Page title cannot be an empty string.");
+        }
+
         Page page = new Page(wiki.getPageText(pageTitle), pageTitle);
 
         this.cacheObjects.add(new CacheObject<>(pageTitle));
-        this.methodList.put("getPage", System.currentTimeMillis());
+        this.methodList.put("getPage", currentTime());
         this.cache.put(page);
 
         return page.getPageText();
     }
 
+
     /**
      * Return a list of page titles that can be reached by following up to
      * `hops` links starting with the page specified by `pageTitle`.
+     * Stores the method name "getConnectedPage" to methodList with current time stamp
+     * Calls recursive function to get all connected pages within specified hops
      *
-     * @param pageTitle
-     * @param hops
-     * @return
+     * @param pageTitle the page title that this method starts from
+     * @param hops the number of hops (range) that needs to be searched
+     * @return the list of page titles that are within 'hops' range
      */
     public List<String> getConnectedPages(String pageTitle, int hops) {
 
-        this.methodList.put("getConnectedPages", System.currentTimeMillis());
+        this.methodList.put("getConnectedPages", currentTime());
 
         return recursiveGetConnected(new ArrayList<>(), pageTitle, hops);
     }
 
 
+    /**
+     * Recursive function that stores every page title that is within specified 'hops' range
+     * If the title is already in the list, skip and check the next title.
+     *
+     * Base case: hops <= 0, no hops left or negative hops
+     * Induction step: For every hop, get all available titles on that page. For every available
+     *                 titles, call this recursive function with --hops. Eventually, hops will reach
+     *                 its base case and terminate the recursive function.
+     *
+     * @param listOfAllTitles all the page titles that are connected to specified page title within hops range
+     * @param pageTitle the specified page title that this method will start from
+     * @param hops number of hops left (range) that needs to be searched
+     * @return the list of page titles that are within 'hops' range so far
+     */
     private ArrayList<String> recursiveGetConnected(ArrayList<String> listOfAllTitles, String pageTitle, int hops) {
         if (hops <= 0) {
             return listOfAllTitles;
@@ -104,15 +180,17 @@ public class WikiMediator {
      * Return the most common `String`s used in `simpleSearch` and `getPage`
      * requests, with items being sorted in non-increasing count order. When
      * many requests have been made, return only `limit` items.
+     * Stores the method name "zeitgeist" to methodList with current time stamp
      *
-     * @param limit
-     * @return
+     * @param limit the maximum number of strings that can be returned
+     * @return the most common string's used in 'simpleSearch' and 'getPage' requests
+     *         with items being sorted in non-increasing order
      */
     public List<String> zeitgeist(int limit) {
         List<CacheObject> list = new ArrayList<>(this.cacheObjects);
         List<String> listOfStrings = new ArrayList<>();
 
-        this.methodList.put("zeitgeist", System.currentTimeMillis());
+        this.methodList.put("zeitgeist", currentTime());
 
         for (CacheObject c: this.cacheObjects) {
             if (list.contains(c)) {
@@ -147,9 +225,11 @@ public class WikiMediator {
     /**
      * Similar to `zeitgeist()`, but returns the most frequent requests made
      * in the last 30 seconds.
+     * Stores the method name "trending" to methodList with current time stamp
      *
-     * @param limit
-     * @return
+     * @param limit the maximum number of strings that can be returned
+     * @return the most common string's used in 'simpleSearch' and 'getPage' requests
+     *         in the last 30 second with items being sorted in non-increasing order
      */
     public List<String> trending(int limit) {
         List<CacheObject> list = new ArrayList<>(this.cacheObjects);
@@ -162,7 +242,7 @@ public class WikiMediator {
                         .max(Integer::compareTo)
                         .get();
                 List<CacheObject> stringsCommon = this.cacheObjects.stream()
-                        .filter(x -> System.currentTimeMillis() - x.lastAccess <= 30 * 1000)
+                        .filter(x -> currentTime() - x.lastAccess <= 30 * 1000)
                         .filter(x -> x.numRequests == max)
                         .collect(Collectors.toList());
 
@@ -187,25 +267,38 @@ public class WikiMediator {
     }
 
     /**
-     * What is the maximum number of requests seen in any 30-second window?
+     * Returns the maximum number of requests seen in any 30-second window?
+     * Stores the method name "peakLoad30s" to methodList with current time stamp
      *
-     * @return
+     * @return the maximum number of requests seen in any 30-seconds interval
      */
     public int peakLoad30s() {
         int max = Integer.MIN_VALUE;
 
+        this.methodList.put("peakLoad30s", currentTime());
+
         for (int i = 0; i < this.methodList.size(); i++) {
-            if (getCallsInInterval(this.methodList.get(i), this.methodList.get(i) + 30 * 1000) > max) {
-                max = getCallsInInterval(this.methodList.get(i), this.methodList.get(i) + 30 * 1000);
+            if (getCallsInInterval(this.methodList.get(i), this.methodList.get(i) + 30 * (long) Math.pow(10, 9)) > max) {
+                max = getCallsInInterval(this.methodList.get(i), this.methodList.get(i) + 30 * (long) Math.pow(10, 9));
             }
         }
 
         return max;                                     //finished this method but haven't tested, might be buggy
     }
 
+
+    /**
+     * Helper function of peakLoad30s that produces the number of all the requests (method calls)
+     * in specified time interval
+     *
+     * @param start the starting time in nanoseconds
+     * @param end the ending time in nanoseconds
+     * @return number of all the requests that happened between specified start and end time
+     */
     private int getCallsInInterval(long start, long end) {
         int callsCount = 0;
 
+        //TODO: change this implementation
         for (int count = 0; count < this.methodList.size(); count++) {
             if (this.methodList.get(count) >= start && this.methodList.get(count) <= end) {
                 callsCount++;
@@ -216,30 +309,45 @@ public class WikiMediator {
     }
 
 
-    private static class CacheObject<String> implements Cacheable {
-        private String s;
+    /**
+     * An object that holds the values in the cache along with their
+     * associated metadata (number of times that was requested and number of requests)
+     */
+    private class CacheObject<string> implements Cacheable {
+        private string s;
         private long lastAccess;
         private int numRequests;
 
-        private CacheObject(String s) {
+
+        /**
+         * Create a CacheObject with current time as last accessed time
+         *
+         * @param s the value to store
+         */
+        private CacheObject(string s) {
             this.s = s;
-            this.lastAccess = System.currentTimeMillis();
+            this.lastAccess = currentTime();
             this.numRequests = 0;
         }
 
-        public int getNumRequests(String s) {
-            return this.numRequests;
-        }
 
-        public void setNumRequests(String s) {
-            this.numRequests++;
-        }
-
+        /**
+         * Make a hashcode for the CacheObject
+         *
+         * @return the hashcode
+         */
         @Override
         public int hashCode() {
             return s.hashCode();
         }
 
+
+        /**
+         * Determine if this and another CacheObject are equal
+         *
+         * @param o other CacheObject to compare to
+         * @return true if this and o are equal, false otherwise
+         */
         @Override
         public boolean equals(Object o) {
             if (o instanceof CacheObject) {
@@ -251,11 +359,19 @@ public class WikiMediator {
             return false;
         }
 
+
+        /**
+         * Produces the id of the string, which is the string itself
+         *
+         * @return the id of the string
+         */
         @Override
         public java.lang.String id() {
             return (java.lang.String) s;
         }
     }
+
+
 
     //TODO - task 3 stuff
 

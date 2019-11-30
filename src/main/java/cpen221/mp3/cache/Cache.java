@@ -5,10 +5,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class Cache <T extends Cacheable> {
 
     /* the default cache size is 32 objects */
-    public static final int DSIZE = 32;
+    private static final int DSIZE = 32;
 
     /* the default timeout value is 3600s */
-    public static final int DTIMEOUT = 3600;
+    private static final int DTIMEOUT = 3600;
 
     private int capacity;
     private int timeout;

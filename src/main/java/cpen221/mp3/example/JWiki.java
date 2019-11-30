@@ -37,6 +37,4 @@ public class JWiki {
 //        }
         System.exit(0);
     }
-
-    ConcurrentHashMap c = new ConcurrentHashMap();
 }
