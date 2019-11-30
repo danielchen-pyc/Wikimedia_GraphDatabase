@@ -220,7 +220,7 @@ public class CacheTest {
 
     @Test
     public void testRemoveLeastRequested() {
-        Cache<Page> c = new Cache<>(2, 1);
+        Cache<Page> c = new Cache<>(2, 10000);
         Page p1 = new Page("test1", "1");
         Page p2 = new Page("test2", "2");
         Page p3 = new Page("test3", "3");
@@ -228,22 +228,22 @@ public class CacheTest {
         c.put(p1);
         c.put(p2);
 
-        // get p1 more than p2
+        // get p1 after get p2
 
         try {
-            Page p = c.get(p1.id());
-        } catch (NoSuchCacheElementException e) {
-            fail("Should not have an exception");
-        }
-
-        try {
-            Page p = c.get(p1.id());
+            Page p = c.get(p2.id());
         } catch (NoSuchCacheElementException e) {
             fail("Should not have an exception");
         }
 
         try {
             Page p = c.get(p2.id());
+        } catch (NoSuchCacheElementException e) {
+            fail("Should not have an exception");
+        }
+
+        try {
+            Page p = c.get(p1.id());
         } catch (NoSuchCacheElementException e) {
             fail("Should not have an exception");
         }

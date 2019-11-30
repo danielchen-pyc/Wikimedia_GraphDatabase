@@ -21,7 +21,7 @@ public class WikiMediatorServer {
      *
      * port -> the port the server communicates over
      * maxClients -> the maximum number of concurrent requests the server can handle
-     * serverSocket -> a
+     * serverSocket -> a socket bound to the specified port //TODO ask Satish if should have this
      */
 
     /**
@@ -38,14 +38,12 @@ public class WikiMediatorServer {
         /* TODO: Implement this method */
         // do not need to store cache locally, only statistics (Q # 1670)
         // follow fibonacciServer example
-
     }
 
     /**
      * Run the server, listening for connections and handling them.
      *
-     * @throws IOException
-     *             if the main server socket is broken
+     * @throws IOException if the main server socket is broken
      */
     public void serve() throws IOException {
         while (true) {
@@ -76,10 +74,8 @@ public class WikiMediatorServer {
     /**
      * Handle one client connection. Returns when client disconnects.
      *
-     * @param socket
-     *            socket where client is connected
-     * @throws IOException
-     *             if connection encounters an error
+     * @param socket socket where client is connected
+     * @throws IOException if connection encounters an IO error
      */
     private void handle(Socket socket) throws IOException {
 

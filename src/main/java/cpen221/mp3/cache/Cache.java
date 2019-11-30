@@ -1,6 +1,6 @@
 package cpen221.mp3.cache;
 
-import java.util.HashSet;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Cache <T extends Cacheable> {
 
@@ -10,9 +10,11 @@ public class Cache <T extends Cacheable> {
     /* the default timeout value is 3600s */
     public static final int DTIMEOUT = 3600;
 
-    private HashSet<CacheObject<T>> data;   //should we change it to concurrentHashSet?
     private int capacity;
     private int timeout;
+
+    private ConcurrentHashMap<CacheObject<T>, Boolean> data;
+    private final long t0 = System.nanoTime();
 
     /*
      * Cache Rep Invariants
@@ -24,8 +26,8 @@ public class Cache <T extends Cacheable> {
      * CacheObject Rep Invariants
      *
      * t is not null
-     * lastAccess >= 0
-     * numRequests >= 0
+     * lastAccessed >= 0
+     * lastUpdated >= 0
      *
      * Cache Abstraction Functions
      *
@@ -58,7 +60,7 @@ public class Cache <T extends Cacheable> {
 
         this.capacity = capacity;
         this.timeout = timeout;
-        this.data = new HashSet<>(this.capacity);
+        this.data = new ConcurrentHashMap<>();
     }
 
     /**
@@ -80,16 +82,21 @@ public class Cache <T extends Cacheable> {
      */
     public synchronized boolean put(T t) {
         CacheObject<T> val = new CacheObject<>(t);
-        val.lastAccessed++;
 
         expire();
-        if (this.data.contains(val)) {
+        if (this.data.containsKey(val)) {
             return update(t);
         } else if (this.data.size() >= this.capacity) {
             removeLeastRecentlyRequested();
-            return this.capacity == 0 ? false : this.data.add(val);
+            if (this.capacity == 0) {
+                return false;
+            } else {
+                this.data.put(val, true);
+                return true;
+            }
         } else {
-            return this.data.add(val);
+            this.data.put(val, true);
+            return true;
         }
     }
 
@@ -103,9 +110,9 @@ public class Cache <T extends Cacheable> {
      */
     public synchronized T get(String id) throws NoSuchCacheElementException {
         expire();
-        for (CacheObject<T> c : this.data) {
+        for (CacheObject<T> c : this.data.keySet()) {
             if (c.t.id().equals(id)) {
-                c.lastAccessed++;
+                c.lastAccessed = currentTime();
                 return c.t;
             }
         }
@@ -122,9 +129,9 @@ public class Cache <T extends Cacheable> {
      */
     public synchronized boolean touch(String id) {
         expire();
-        for (CacheObject c : this.data) {
+        for (CacheObject c : this.data.keySet()) {
             if (c.t.id().equals(id)) {
-                c.lastUpdated = System.currentTimeMillis();
+                c.lastUpdated = currentTime();
                 return true;
             }
         }
@@ -140,15 +147,15 @@ public class Cache <T extends Cacheable> {
      * @return true if successful and false otherwise
      */
     public synchronized boolean update(T t) {
-        HashSet<CacheObject<T>> values = new HashSet<>(this.data);
+        ConcurrentHashMap<CacheObject<T>, Boolean> values = new ConcurrentHashMap<>(this.data);
         CacheObject<T> updatedItem = new CacheObject<>(t);
 
         boolean updated = false;
-        for (CacheObject<T> c : values) {
+        for (CacheObject<T> c : values.keySet()) {
             if (c.equals(updatedItem)) {
                 updatedItem.lastAccessed = c.lastAccessed;
                 this.data.remove(c);
-                this.data.add(updatedItem);
+                this.data.put(updatedItem, true);
                 updated = true;
                 break;
             }
@@ -168,7 +175,7 @@ public class Cache <T extends Cacheable> {
 
         CacheObject<T> least = null;
         long leastRecentlyRequested = Long.MAX_VALUE;
-        for (CacheObject<T> c : this.data) {
+        for (CacheObject<T> c : this.data.keySet()) {
             if (c.lastAccessed < leastRecentlyRequested) {
                 least = c;
                 leastRecentlyRequested = c.lastAccessed;
@@ -183,12 +190,21 @@ public class Cache <T extends Cacheable> {
      * the timeout period
      */
     private synchronized void expire() {
-        HashSet<CacheObject<T>> values = new HashSet<>(this.data);
-        for (CacheObject<T> c : values) {
-            if (c.lastUpdated + this.timeout * 1000 < System.currentTimeMillis()) {
+        ConcurrentHashMap<CacheObject<T>, Boolean> values = new ConcurrentHashMap<>(this.data);
+        for (CacheObject<T> c : values.keySet()) {
+            if (c.lastUpdated + this.timeout * 1000000000 < currentTime()) {
                 this.data.remove(c);
             }
         }
+    }
+
+    /**
+     * Get the time since the cache was created.
+     *
+     * @return the number of nanoseconds since the cache was created.
+     */
+    private synchronized long currentTime() {
+        return System.nanoTime() - t0;
     }
 
     /**
@@ -207,8 +223,8 @@ public class Cache <T extends Cacheable> {
          */
         private CacheObject(T t) {
             this.t = t;
-            this.lastUpdated = System.currentTimeMillis();
-            this.lastAccessed = System.currentTimeMillis();
+            this.lastUpdated = currentTime();
+            this.lastAccessed = currentTime();
         }
 
         /**
