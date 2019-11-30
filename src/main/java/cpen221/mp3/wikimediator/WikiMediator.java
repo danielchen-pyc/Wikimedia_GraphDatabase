@@ -13,8 +13,6 @@ public class WikiMediator {
      *
      */
 
-    // do not need to store cache locally, only statistics (Q # 1670)
-
     private final static int CACHE_CAPACITY = 256;
     private final static int CACHE_TIMEOUT = 12 * 60 * 60;  // 12 hours
 
@@ -261,5 +259,56 @@ public class WikiMediator {
 
     //TODO - task 3 stuff
 
+    /**
+     * Given two Wikipedia page titles, find a path from the start page to
+     * the stop page by following the links between pages.
+     *
+     * @param startPage title of page to start searching from
+     * @param stopPage title of page to search for
+     * @return a list containing a path of pages from startPage to
+     *         stopPage, including startPage and stopPage
+     */
+    public List<String> getPath(String startPage, String stopPage) {
+        // hunt from MP 2
+        return new LinkedList<>();
+    }
+
+    /**
+     * Execute a provided structured query.
+     *
+     * @param query the query to execute
+     * @return a list of all page titles that match the query
+     * @throws InvalidQueryException if query cannot be parsed
+     */
+    public List<String> excuteQuery(String query) throws InvalidQueryException { //TODO - check campuswire to see if typo
+        /*
+         * idea for how to do this
+         * 1. parse query and pass the CONDITION to executeCondition()
+         * 2. executeCondition() will recursively call itself on any subconditions within
+         * the condition passed, until all conditions are handled. Handling a condition
+         * entails  1. Running the commands for the condition (ex: getPage() for "title is 'Barack Obama'")
+         *          2. Depending on whether condition is 'and' or 'or' or a simple condition,
+         *              get the result (ex: For the condition "title is 'Barack Obama' AND category is
+         *              'Illinois State Senators'", result would be the intersection of the lists of
+         *              both sides of the condition)
+         *          3. Return the final result
+         * 3. look through the list returned from executeCondition() and apply ITEM to it (applying ITEM
+         * is a filter & map operation(s))
+         * 4. if the output is supposed to be sorted, sort it
+         * 5. return the result
+         *
+         */
+        return new LinkedList<>();
+    }
+
+    /**
+     * Get the result of a given condition of a query.
+     *
+     * @param condition the condition to execute
+     * @return the result of the condition
+     */
+    private List<String> executeCondition(String condition) { // maybe something is better than a string? idk
+        return new LinkedList<>();
+    }
 
 }
