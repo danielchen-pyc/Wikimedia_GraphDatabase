@@ -82,6 +82,7 @@ public class WikiMediator {
      * @param query the string that is being searched
      * @param limit the maximum number of titles that is required to search
      * @return a list that stores up to 'limit' amount of page contents whose title matches the 'query'
+     * @throws IllegalArgumentException if page title is an empty string
      */
     public List<String> simpleSearch(String query, int limit) {
         ArrayList<String> listOfSearch = new ArrayList<>();
@@ -384,8 +385,9 @@ public class WikiMediator {
      *
      * @param startPage title of page to start searching from
      * @param stopPage title of page to search for
-     * @return a list containing a path of pages from startPage to
+     * @return a list of page titles containing a path of pages from startPage to
      *         stopPage, including startPage and stopPage
+     * @throws IllegalArgumentException if either startPage or stopPage is an empty string
      */
     public List<String> getPath(String startPage, String stopPage) {
         // hunt from MP 2
