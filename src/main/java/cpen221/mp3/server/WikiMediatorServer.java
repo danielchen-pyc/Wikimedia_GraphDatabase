@@ -44,7 +44,7 @@ public class WikiMediatorServer {
      * @param n the number of concurrent requests the server can handle
      * @throws IllegalArgumentException if the port number is invalid
      */
-    public WikiMediatorServer(int port, int n) {
+    public WikiMediatorServer(int port, int n) { //TODO - see #1897
         if (port < 0 || port > 65535) {
             throw new IllegalArgumentException("Invalid port");
         }

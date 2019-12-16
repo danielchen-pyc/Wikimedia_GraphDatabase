@@ -376,9 +376,6 @@ public class WikiMediator {
     }
 
 
-
-    //TODO - task 3 stuff
-
     /**
      * Given two Wikipedia page titles, find a path from the start page to
      * the stop page by following the links between pages.
@@ -386,11 +383,128 @@ public class WikiMediator {
      * @param startPage title of page to start searching from
      * @param stopPage title of page to search for
      * @return a list of page titles containing a path of pages from startPage to
-     *         stopPage, including startPage and stopPage
-     * @throws IllegalArgumentException if either startPage or stopPage is an empty string
+     *         stopPage inclusive, or an empty list if no path exists.
+     * @throws IllegalArgumentException if either startPage or stopPage is an empty
+     *         string or not a Wikipedia article title
      */
     public List<String> getPath(String startPage, String stopPage) {
-        // hunt from MP 2
+        LinkedList<String> pagesForward = new LinkedList<>();
+        HashSet<String> visitedPagesForward = new HashSet<>();
+        Map<String, String> previousPageForward = new HashMap<>();
+        LinkedList<String> pagesBackward = new LinkedList<>();
+        HashSet<String> visitedPagesBackward = new HashSet<>();
+        Map<String, String> previousPageBackward = new HashMap<>();
+
+        if (startPage == null || stopPage == null || startPage.equals("") || stopPage.equals("")) {
+            throw new IllegalArgumentException("Invalid page");
+        } else if (this.wiki.getLinksOnPage(startPage).size() == 0
+                || (this.wiki.whatLinksHere(stopPage).size() == 0
+                && this.wiki.whatLinksHere(stopPage, true).size() == 0)) {
+            return new LinkedList<>();
+        }
+
+        if (this.wiki.getCategoriesOnPage(stopPage).contains("Category:All orphaned articles")) {
+            return new LinkedList<>();
+        }
+
+        if (startPage.equals(stopPage)) {
+            return Arrays.asList(startPage);
+        }
+
+        visitedPagesForward.add(startPage);
+        pagesForward.offer(startPage);
+        visitedPagesBackward.add(stopPage);
+        pagesBackward.offer(stopPage);
+
+        String currentPageForward = startPage;
+        String currentPageBackward = stopPage;
+
+        while (!pagesForward.isEmpty() && !pagesBackward.isEmpty()) {
+            int forwardLinksCount = this.wiki.getLinksOnPage(currentPageForward).size();
+            int backwardLinksCount = this.wiki.getLinksOnPage(currentPageBackward).size();
+            String currentPage;
+            String targetPage;
+            HashSet<String> visitedPages;
+            Map<String, String> previousPage;
+            LinkedList<String> pages;
+            List<String> links;
+
+            if (forwardLinksCount > backwardLinksCount) {
+                currentPageForward = pagesForward.poll();
+                currentPage = currentPageForward;
+                targetPage = stopPage;
+                visitedPages = visitedPagesForward;
+                previousPage = previousPageForward;
+                pages = pagesForward;
+                links = this.wiki.getLinksOnPage(currentPage);
+            } else {
+                currentPageBackward = pagesBackward.poll();
+                currentPage = currentPageBackward;
+                targetPage = startPage;
+                visitedPages = visitedPagesBackward;
+                previousPage = previousPageBackward;
+                pages = pagesBackward;
+
+                links = this.wiki.whatLinksHere(currentPage);
+                List<String> redirects = this.wiki.whatLinksHere(currentPage, true);
+                for (String redirect : redirects) {
+                    links.addAll(this.wiki.whatLinksHere(redirect).stream()
+                            .filter(s -> !links.contains(s))
+                            .collect(Collectors.toList()));
+                }
+            }
+
+            for (String link : links) {
+                if (!visitedPages.contains(link)) {
+                    visitedPages.add(link);
+                    previousPage.put(link, currentPage);
+                    pages.offer(link);
+
+                    if (link.equals(targetPage)) {
+                        LinkedList<String> path = new LinkedList<>();
+                        String page = link;
+                        while (!page.equals(startPage)) {
+                            path.addFirst(page);
+                            page = previousPage.get(page);
+                        }
+
+                        path.addFirst(startPage);
+                        System.out.println("link = targetPage");
+                        return path;
+                    }
+
+                    for (String page : pagesForward) {
+                        if (pagesBackward.contains(page)) {
+                            // get path for each half - stick together
+                            LinkedList<String> pathForward = new LinkedList<>();
+                            LinkedList<String> pathBackward = new LinkedList<>();
+                            List<String> path = new LinkedList<>();
+
+                            String pageForward = page;
+                            while (!pageForward.equals(startPage)) {
+                                pathForward.addFirst(pageForward);
+                                pageForward = previousPageForward.get(pageForward);
+                            }
+                            pathForward.addFirst(startPage);
+
+                            String pageBackward = previousPageBackward.get(page);
+                            while (!pageBackward.equals(stopPage)) {
+                                pathBackward.addLast(pageBackward);
+                                pageBackward = previousPageBackward.get(pageBackward);
+                            }
+                            pathBackward.addLast(stopPage);
+
+                            path.addAll(pathForward);
+                            path.addAll(pathBackward);
+
+                            System.out.printf("forward backward intersection at %s\n", page);
+                            return path;
+                        }
+                    }
+                }
+            }
+        }
+
         return new LinkedList<>();
     }
 
