@@ -83,7 +83,8 @@ public class WikiMediatorTest {
             });
 
             for (int j = 0; j < 3; j++) {
-                stressTester.run();
+                stressTester.start();
+                stressTester.join();
             }
         }
 

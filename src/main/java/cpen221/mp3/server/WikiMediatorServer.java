@@ -1,8 +1,14 @@
 package cpen221.mp3.server;
 
+import com.google.gson.Gson;
+
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 public class WikiMediatorServer {
 
@@ -124,6 +130,13 @@ public class WikiMediatorServer {
         PrintWriter out = new PrintWriter(new OutputStreamWriter(
                 socket.getOutputStream()), true);
 
+        try{
+
+        } finally {
+            in.close();
+            out.close();
+        }
+
         //TODO - implement
 
         // the Request and Response classes are so we can use Gson easily
@@ -138,7 +151,11 @@ public class WikiMediatorServer {
      * @param data the data to store locally
      */
     private synchronized void writeToLocal(String data) {
-        //TODO
+        try(FileOutputStream fileOutputStream = new FileOutputStream(dataPath)) {
+            fileOutputStream.write(data.getBytes());
+        } catch (IOException e) {
+            e.printStackTrace(); // exception handling
+        }
     }
 
     /**
@@ -148,8 +165,16 @@ public class WikiMediatorServer {
      * @return the entire file located at dataPath, or the parts of the file
      *          specified by search
      */
-    private synchronized String readFromLocal(String search) {
-        //TODO
+    private synchronized String readFromLocal(String... search) throws IOException {
+
+        boolean check = search != null && search.length > 0;
+
+        if (check) {
+            // TODO: search the file
+        } else {
+            return Files.readString(Paths.get(dataPath), StandardCharsets.US_ASCII);
+        }
+
         return null;
     }
 
