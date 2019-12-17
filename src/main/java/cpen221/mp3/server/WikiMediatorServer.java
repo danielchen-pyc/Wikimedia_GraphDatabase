@@ -1,6 +1,8 @@
 package cpen221.mp3.server;
 
-import com.google.gson.Gson;
+import com.google.gson.*;
+import cpen221.mp3.wikimediator.WikiMediator;
+import fastily.jwiki.core.Wiki;
 
 import java.io.*;
 import java.net.ServerSocket;
@@ -9,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 
 public class WikiMediatorServer {
 
@@ -116,6 +119,7 @@ public class WikiMediatorServer {
      * @throws IOException if connection encounters an IO error
      */
     private void handle(Socket socket) throws IOException {
+        WikiMediator wm = new WikiMediator();
 
         // get the socket's input stream, and wrap converters around it
         // that convert it from a byte stream to a character stream,
@@ -130,19 +134,118 @@ public class WikiMediatorServer {
         PrintWriter out = new PrintWriter(new OutputStreamWriter(
                 socket.getOutputStream()), true);
 
-        try{
+        try {
+            JsonElement json = JsonParser.parseReader(in);
+            if (json.isJsonArray()) {
+                JsonArray requestArray = json.getAsJsonArray();
+                for (int i = 0; i < requestArray.size(); i++) {
+                    JsonObject request = requestArray.get(i).getAsJsonObject();
+                    String id = "";
+                    try {
+                        id = request.get("id").getAsString();
+                    } catch (Exception e) {
+                        id = null;
+                    }
 
+                    String type = "";
+                    try {
+                        type = request.get("type").getAsString();
+                    } catch (Exception e) { /* ignore it for now */ }
+
+                    String query = "";
+                    try {
+                        query = request.get("query").getAsString();
+                    } catch (Exception e) {
+                        query = null;
+                    }
+
+                    String timeout = "";
+                    try {
+                        timeout = request.get("timeout").getAsString();
+                    } catch (Exception e) {
+                        timeout = null;
+                    }
+
+                    String pageTitle = "";
+                    try {
+                        pageTitle = request.get("pageTitle").getAsString();
+                    } catch (Exception e) {
+                        pageTitle = null;
+                    }
+
+                    int limit = 0;
+                    try {
+                        limit = Integer.parseInt(request.get("limit").getAsString());
+                    } catch (Exception e) { /* ignore it for now */ }
+
+                    int hops = 0;
+                    try {
+                        hops = Integer.parseInt(request.get("hops").getAsString());
+                    } catch (Exception e) { /* ignore it for now */ }
+
+                    Request newRequest = new Request(id, type, timeout, query, limit, pageTitle, hops);
+                    execute(newRequest, wm, out);
+                }
+            }
         } finally {
             in.close();
             out.close();
         }
 
-        //TODO - implement
-
         // the Request and Response classes are so we can use Gson easily
 
         out.close();
         in.close();
+    }
+
+    private void execute(Request newRequest, WikiMediator wm, PrintWriter out) {
+        Gson gson = new Gson();
+        String id = newRequest.getId();
+        Response response;
+
+        switch (newRequest.getType()) {
+            case "simpleSearch": {
+                if (newRequest.getQuery() != null) {
+                    response = new Response(id, "success",
+                            wm.simpleSearch(newRequest.getQuery(), newRequest.getLimit()).toString());
+                } else {
+                    response = new Response(id, "failed", "Query is null.");
+                }
+            }
+
+            case "getPage": {
+                if (newRequest.getPageTitle() != null) {
+                    response = new Response(id, "success", wm.getPage(newRequest.getPageTitle()));
+                } else {
+                    response = new Response(id, "failed", "pageTitle is null");
+                }
+            }
+
+            case "getConnectedPages": { //TODO: add operation timed out
+                if (newRequest.getPageTitle() != null) {
+                    response = new Response(id, "success",
+                            wm.getConnectedPages(newRequest.getPageTitle(), newRequest.getHops()).toString());
+                } else {
+                    response = new Response(id, "failed", "pageTitle is null");
+                }
+            }
+
+            case "zeitgeist": { //TODO: add operation timed out
+                response = new Response(id, "success", wm.zeitgeist(newRequest.getLimit()).toString());
+            }
+
+            case "trending": { //TODO: add operation timed out
+                response = new Response(id, "success", wm.trending(newRequest.getLimit()).toString());
+            }
+
+            case "peakLoad30s": { //TODO: add operation timed out
+                response = new Response(id, "success", Integer.toString(wm.peakLoad30s()));
+            }
+
+            default: response = new Response(id, "failed", "Operation Failed");
+        }
+
+        gson.toJson(response, out);
     }
 
     /**
