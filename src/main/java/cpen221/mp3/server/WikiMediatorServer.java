@@ -202,6 +202,7 @@ public class WikiMediatorServer {
         Gson gson = new Gson();
         String id = newRequest.getId();
         Response response;
+        long startTime = System.currentTimeMillis();
 
         switch (newRequest.getType()) {
             case "simpleSearch": {
@@ -221,25 +222,52 @@ public class WikiMediatorServer {
                 }
             }
 
-            case "getConnectedPages": { //TODO: add operation timed out
-                if (newRequest.getPageTitle() != null) {
-                    response = new Response(id, "success",
-                            wm.getConnectedPages(newRequest.getPageTitle(), newRequest.getHops()).toString());
+            case "getConnectedPages": {
+                if (newRequest.getTimeout() != null && !newRequest.getTimeout().equals("")) {
+                    String result = wm.getConnectedPages(newRequest.getPageTitle(), newRequest.getHops()).toString();
+                    long currentTime = System.currentTimeMillis();
+                    if (newRequest.getPageTitle() != null
+                            && currentTime - startTime <= Integer.parseInt(newRequest.getTimeout())) {
+                        response = new Response(id, "success", result);
+                    } else if (newRequest.getPageTitle() == null){
+                        response = new Response(id, "failed", "pageTitle is null");
+                    } else {
+                        response = new Response(id, "failed", "Operation timed out");
+                    }
                 } else {
-                    response = new Response(id, "failed", "pageTitle is null");
+                    response = new Response(id, "failed", "Invalid Timeout");
                 }
             }
 
-            case "zeitgeist": { //TODO: add operation timed out
-                response = new Response(id, "success", wm.zeitgeist(newRequest.getLimit()).toString());
+            case "zeitgeist": {
+                String result = wm.zeitgeist(newRequest.getLimit()).toString();
+                long currentTime = System.currentTimeMillis();
+                if (currentTime - startTime <= Integer.parseInt(newRequest.getTimeout())) {
+                    response = new Response(id, "success", result);
+                } else {
+                    response = new Response(id, "failed", "Operation timed out");
+                }
             }
 
-            case "trending": { //TODO: add operation timed out
-                response = new Response(id, "success", wm.trending(newRequest.getLimit()).toString());
+            case "trending": {
+                String result = wm.trending(newRequest.getLimit()).toString();
+                long currentTime = System.currentTimeMillis();
+                if (currentTime - startTime <= Integer.parseInt(newRequest.getTimeout())) {
+                    response = new Response(id, "success", result);
+                } else {
+                    response = new Response(id, "failed", "Operation timed out");
+                }
+
             }
 
             case "peakLoad30s": { //TODO: add operation timed out
-                response = new Response(id, "success", Integer.toString(wm.peakLoad30s()));
+                String result = Integer.toString(wm.peakLoad30s());
+                long currentTime = System.currentTimeMillis();
+                if (currentTime - startTime <= Integer.parseInt(newRequest.getTimeout())) {
+                    response = new Response(id, "success", Integer.toString(wm.peakLoad30s()));
+                } else {
+                    response = new Response(id, "failed", "Operation timed out");
+                }
             }
 
             default: response = new Response(id, "failed", "Operation Failed");
