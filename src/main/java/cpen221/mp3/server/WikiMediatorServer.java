@@ -51,13 +51,9 @@ public class WikiMediatorServer {
      *
      * @param port the port number to bind the server to
      * @param n the number of concurrent requests the server can handle
-     * @throws IllegalArgumentException if the port number is invalid
+     * @throws IOException if the port number is invalid
      */
-    public WikiMediatorServer(int port, int n) { //TODO - see #1897
-        if (port < 0 || port > 65535) {
-            throw new IllegalArgumentException("Invalid port");
-        }
-
+    public WikiMediatorServer(int port, int n) throws IOException{
         this.maxClients = n;
 
         ServerSocket socket;
@@ -66,7 +62,7 @@ public class WikiMediatorServer {
             socket = new ServerSocket(port);
             connected = true;
         } catch (IOException e) {
-            throw new IllegalArgumentException("Could not establish connection to specified port");
+            throw new IOException("Could not establish connection to specified port");
         } finally {
             if (!connected) {
                 socket = null;
@@ -74,9 +70,6 @@ public class WikiMediatorServer {
         }
 
         this.serverSocket = socket;
-
-        /* TODO: Implement this method */
-        // TODO - figure out IOException thing
         // do not need to store cache locally, only statistics (campuswire #1670, #1688)
         // follow fibonacciServer example
     }
@@ -260,7 +253,7 @@ public class WikiMediatorServer {
 
             }
 
-            case "peakLoad30s": { //TODO: add operation timed out
+            case "peakLoad30s": {
                 String result = Integer.toString(wm.peakLoad30s());
                 long currentTime = System.currentTimeMillis();
                 if (currentTime - startTime <= Integer.parseInt(newRequest.getTimeout())) {
@@ -298,15 +291,7 @@ public class WikiMediatorServer {
      */
     private synchronized String readFromLocal(String... search) throws IOException {
 
-        boolean check = search != null && search.length > 0;
-
-        if (check) {
-            // TODO: search the file
-        } else {
-            return Files.readString(Paths.get(dataPath), StandardCharsets.US_ASCII);
-        }
-
-        return null;
+        return Files.readString(Paths.get(dataPath), StandardCharsets.US_ASCII);
     }
 
 }
