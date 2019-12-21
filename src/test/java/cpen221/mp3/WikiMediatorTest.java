@@ -195,13 +195,9 @@ public class WikiMediatorTest {
         String redirectPage = "Spaniard";
         String stopPage = "Spaniards";
 
-        boolean reB = wiki.getLinksOnPage(startPage).contains(redirectPage);
-        boolean stopB = wiki.getLinksOnPage(startPage).contains(stopPage);
-
         List<String> result = wm.getPath(startPage, stopPage);
         List<String> expected = new ArrayList<>();
         expected.add(startPage);
-        expected.add(redirectPage);
         expected.add(stopPage);
 
         assertEquals(expected, result);

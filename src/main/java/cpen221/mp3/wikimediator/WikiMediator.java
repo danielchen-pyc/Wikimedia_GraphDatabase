@@ -466,6 +466,7 @@ public class WikiMediator {
             int backwardLinksCount = this.wiki.getLinksOnPage(currentPageBackward).size();
             String currentPage;
             String targetPage;
+            String sourcePage;
             HashSet<String> visitedPages;
             Map<String, String> previousPage;
             LinkedList<String> pages;
@@ -477,6 +478,7 @@ public class WikiMediator {
                 currentPageForward = pagesForward.poll();
                 currentPage = currentPageForward;
                 targetPage = stopPage;
+                sourcePage = startPage;
                 visitedPages = visitedPagesForward;
                 previousPage = previousPageForward;
                 pages = pagesForward;
@@ -485,6 +487,7 @@ public class WikiMediator {
                 currentPageBackward = pagesBackward.poll();
                 currentPage = currentPageBackward;
                 targetPage = startPage;
+                sourcePage = stopPage;
                 visitedPages = visitedPagesBackward;
                 previousPage = previousPageBackward;
                 pages = pagesBackward;
@@ -508,13 +511,17 @@ public class WikiMediator {
                     if (link.equals(targetPage)) {
                         LinkedList<String> path = new LinkedList<>();
                         String page = link;
-                        while (!page.equals(startPage)) {
+                        while (!page.equals(sourcePage)) {
                             path.addFirst(page);
                             page = previousPage.get(page);
                         }
 
-                        path.addFirst(startPage);
+                        path.addFirst(sourcePage);
                         System.out.println("up here");
+                        if (path.getFirst().equals(stopPage)) {
+                            Collections.reverse(path);
+                        }
+
                         return path;
                     }
 
@@ -561,50 +568,7 @@ public class WikiMediator {
                                 }
                             }
 
-                            /*
-                            LinkedList<String> secondPathForward = new LinkedList<>();
-                            HashSet<String> secondVisitedPagesForward = new HashSet<>();
-                            LinkedList<String> pathQueue = new LinkedList<>();
-                            Map<String, String> parentPage = new HashMap<>();
-                            String pageNow;
-
-                            secondVisitedPagesForward.add(page);
-                            secondPathForward.offer(page);
-                            pathQueue.offer(page);
-
-                            while (!pathQueue.isEmpty() && !pathQueue.contains(stopPage)) {
-                                pageNow = secondPathForward.poll();
-                                List<String> newLinks = this.wiki.getLinksOnPage(pageNow);
-                                for (String newLink : newLinks) {
-                                    if (!secondVisitedPagesForward.contains(newLink)) {
-                                        secondVisitedPagesForward.add(newLink);
-                                        parentPage.put(newLink, pageNow);
-                                        secondPathForward.offer(newLink);
-
-                                        if (pathBackward.contains(newLink)) {
-                                            // add to path
-                                            String currentPageNow = newLink;
-                                            while (!currentPageNow.equals(pathForward.peekLast())) {
-                                                pathQueue.addFirst(currentPageNow);
-                                                currentPageNow = parentPage.get(currentPageNow);
-                                            }
-
-                                            pathForward.addAll(pathQueue);
-                                            pathQueue.clear();
-
-                                            //restart
-                                            secondPathForward.offer(newLink);
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-
-                             */
-
                             path.addAll(pathForward);
-                            //path.addAll(pathBackward);
-
                             return path;
                         }
                     }
