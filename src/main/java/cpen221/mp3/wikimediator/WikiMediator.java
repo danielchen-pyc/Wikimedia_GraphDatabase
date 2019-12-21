@@ -146,20 +146,32 @@ public class WikiMediator {
      * @throws IllegalArgumentException if page title is an empty string
      */
     public String getPage(String pageTitle) {
-
         if (pageTitle.equals("")) {
             throw new IllegalArgumentException("Page title cannot be an empty string.");
         }
 
-        Page page = new Page(wiki.getPageText(pageTitle), pageTitle);
+        boolean exist = false;
+        for (CacheObject c: this.cacheObjects) {
+            if (c.id().equals(pageTitle)) {
+                exist = true;
+                try {
+                    this.methodList.put("getPage", currentTime());
+                    return this.cache.get(pageTitle).getPageText();
+                } catch (NoSuchCacheElementException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
 
-        // TODO - use the cache
-        this.cacheObjects.add(new CacheObject<>(pageTitle));
-        this.methodList.put("getPage", currentTime());
+        if (!exist) {
+            Page page = new Page(wiki.getPageText(pageTitle), pageTitle);
+            this.methodList.put("getPage", currentTime());
+            this.cacheObjects.add(new CacheObject<>(pageTitle));
+            this.cache.put(page);
+            return page.getPageText();
+        }
 
-        this.cache.put(page);
-
-        return page.getPageText();
+        return null;
     }
 
 
@@ -199,14 +211,14 @@ public class WikiMediator {
         if (hops <= 0) {
             return listOfAllTitles;
         } else {
-            // TODO - use the cache? - might be hard to get links
             for (int i = 0; i < wiki.getLinksOnPage(true, pageTitle).size(); i++) {
                 listOfAllTitles.addAll(wiki.getLinksOnPage(true, pageTitle)
                                 .stream()
                                 .filter(x -> !listOfAllTitles.contains(x))
                                 .collect(Collectors.toList()));
                 listOfAllTitles
-                        .addAll(recursiveGetConnected(listOfAllTitles, wiki.getLinksOnPage(true, pageTitle).get(i), --hops)
+                        .addAll(recursiveGetConnected(listOfAllTitles,
+                                wiki.getLinksOnPage(true, pageTitle).get(i), --hops)
                         .stream()
                         .filter(x -> !listOfAllTitles.contains(x))
                         .collect(Collectors.toList()));
@@ -231,34 +243,25 @@ public class WikiMediator {
 
         this.methodList.put("zeitgeist", currentTime());
 
+        // TODO: Check this implementation
         for (CacheObject c: this.cacheObjects) {
             if (list.contains(c)) {
-                int max = this.cacheObjects.stream()
-                        .map(x -> x.numRequests)
-                        .max(Integer::compareTo)
-                        .get();
-                List<CacheObject> stringsCommon = this.cacheObjects.stream()
-                        .filter(x -> x.numRequests == max)
-                        .collect(Collectors.toList());
+                int max;
+                int stringsCommonSize = Integer.MIN_VALUE;
+                if (this.cacheObjects.stream().map(x -> x.numRequests).max(Integer::compareTo).isPresent()) {
+                    max = this.cacheObjects.stream().map(x -> x.numRequests).max(Integer::compareTo).get();
+                    stringsCommonSize = (int) this.cacheObjects.stream()
+                            .filter(x -> x.numRequests == max).count();
+                }
 
-                if (stringsCommon.size() != 0) {
-                    list.remove(c);
+                if (stringsCommonSize != 0 && listOfStrings.size() < limit) {
+                    list.removeAll(Collections.singleton(c));
                     listOfStrings.add(c.id());
-                } else {
-                    if (listOfStrings.size() >= limit) {
-                        return listOfStrings.subList(0, limit);
-                    } else {
-                        return listOfStrings;
-                    }
                 }
             }
         }
 
-        if (listOfStrings.size() >= limit) {
-            return listOfStrings.subList(0, limit);
-        } else {
-            return listOfStrings;
-        }                                               //finished this method but haven't tested, might be buggy
+        return listOfStrings;
     }
 
     /**
@@ -274,35 +277,27 @@ public class WikiMediator {
         List<CacheObject> list = new ArrayList<>(this.cacheObjects);
         List<String> listOfStrings = new ArrayList<>();
 
+        // TODO: Check this implementation
         for (CacheObject c: this.cacheObjects) {
             if (list.contains(c)) {
-                int max = this.cacheObjects.stream()
-                        .map(x -> x.numRequests)
-                        .max(Integer::compareTo)
-                        .get();
-                List<CacheObject> stringsCommon = this.cacheObjects.stream()
-                        .filter(x -> currentTime() - x.lastAccess <= 30 * 1000)
-                        .filter(x -> x.numRequests == max)
-                        .collect(Collectors.toList());
+                int max;
+                int stringsCommonSize = Integer.MIN_VALUE;
+                if (this.cacheObjects.stream().map(x -> x.numRequests).max(Integer::compareTo).isPresent()) {
+                    max = this.cacheObjects.stream().map(x -> x.numRequests).max(Integer::compareTo).get();
+                    stringsCommonSize = (int) this.cacheObjects.stream()
+                            .filter(x -> currentTime() - x.lastAccess <= 30 * Math.pow(10, 9))
+                            .filter(x -> x.numRequests == max).count();
+                }
 
-                if (stringsCommon.size() != 0) {
+
+                if (stringsCommonSize != 0 && listOfStrings.size() < limit) {
                     list.remove(c);
                     listOfStrings.add(c.id());
-                } else {
-                    if (listOfStrings.size() >= limit) {
-                        return listOfStrings.subList(0, limit);
-                    } else {
-                        return listOfStrings;
-                    }
                 }
             }
         }
 
-        if (listOfStrings.size() >= limit) {
-            return listOfStrings.subList(0, limit);
-        } else {
-            return listOfStrings;
-        }                                               //finished this method but haven't tested, might be buggy
+        return listOfStrings;
     }
 
     /**
@@ -313,21 +308,22 @@ public class WikiMediator {
      */
     public int peakLoad30s() {
         int max = Integer.MIN_VALUE;
-
         this.methodList.put("peakLoad30s", currentTime());
 
-        for (int i = 0; i < this.methodList.size(); i++) {
-            if (getCallsInInterval(this.methodList.get(i), this.methodList.get(i) + 30 * (long) Math.pow(10, 9)) > max) {
-                max = getCallsInInterval(this.methodList.get(i), this.methodList.get(i) + 30 * (long) Math.pow(10, 9));
+        for (String methodName: this.methodList.keySet()) {
+            int numberOfCalls = getCallsInInterval(this.methodList.get(methodName),
+                    this.methodList.get(methodName) + 30 * (long) Math.pow(10, 9));
+                if (numberOfCalls > max) {
+                max = numberOfCalls;
             }
         }
 
-        return max;                                     //finished this method but haven't tested, might be buggy
+        return max;
     }
 
 
     /**
-     * Helper function of peakLoad30s that produces the number of all the requests (method calls)
+     * Helper method of peakLoad30s that produces the number of all the requests (method calls)
      * in specified time interval
      *
      * @param start the starting time in nanoseconds
@@ -337,9 +333,8 @@ public class WikiMediator {
     private int getCallsInInterval(long start, long end) {
         int callsCount = 0;
 
-        //TODO: change this implementation
-        for (int count = 0; count < this.methodList.size(); count++) {
-            if (this.methodList.get(count) >= start && this.methodList.get(count) <= end) {
+        for (String key: this.methodList.keySet()) {
+            if (this.methodList.get(key) >= start && this.methodList.get(key) <= end) {
                 callsCount++;
             }
         }
