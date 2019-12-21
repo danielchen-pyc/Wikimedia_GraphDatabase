@@ -86,7 +86,7 @@ public class WikiMediatorTest {
             });
 
             for (int j = 0; j < 3; j++) {
-                stressTester.start();
+                stressTester.run();
                 stressTester.join();
             }
         }
@@ -98,7 +98,7 @@ public class WikiMediatorTest {
     @Test
     public void testSimpleSearch() {
         WikiMediator wm = new WikiMediator();
-        System.out.println(System.nanoTime());
+
     }
 
     @Test
