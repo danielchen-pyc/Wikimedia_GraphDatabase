@@ -1,13 +1,15 @@
 package cpen221.mp3;
 
 import cpen221.mp3.cache.Cache;
+import cpen221.mp3.wikimediator.InvalidQueryException;
 import cpen221.mp3.wikimediator.Page;
 import cpen221.mp3.wikimediator.WikiMediator;
+import fastily.jwiki.core.NS;
 import fastily.jwiki.core.Wiki;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
 
@@ -192,6 +194,138 @@ public class WikiMediatorTest {
         // invalid page
         List<String> result3 = wm.getPath("<>{notvalid}>", "Skin");
         assertEquals(expectedEmpty, result3);
+    }
+
+    // this passed as of 2019.12.20 15:33
+    @Test
+    public void testExecuteQuery_normalInputs() {
+        WikiMediator wm = new WikiMediator();
+        String query1 = "get category where title is 'Nimble Giant Entertainment'";
+        String query2 = "get page where (author is 'Soumya-8974' and category is 'English languages')";
+        String query3 = "get author where (title is 'Otis F. Glenn' or (title is 'William H. Dieterich' and category is 'United States senators from Illinois')) asc";
+        String query4 = "get author where (title is 'Otis F. Glenn' or (title is 'William H. Dieterich' and category is 'United States senators from Illinois')) desc";
+        String query5 = "get category where (author is 'Sylas' and author is 'Henry')";
+
+        List<String> result1 = new LinkedList<>();
+        List<String> expected1 = new LinkedList<>(Arrays.asList("Companies based in Buenos Aires", "Video game development companies", "Video game companies of Argentina"));
+        try {
+            result1 = wm.executeQuery(query1);
+        } catch (InvalidQueryException e) {
+            fail("InvalidQueryException");
+        } finally {
+            for (String c : expected1) {
+                assertTrue(result1.contains("Category:" + c));
+            }
+        }
+
+        List<String> result2 = new LinkedList<>();
+        List<String> expected2 = new LinkedList<>(Arrays.asList("Old English"));
+        try {
+            result2 = wm.executeQuery(query2);
+        } catch (InvalidQueryException e) {
+            fail("InvalidQueryException");
+        } finally {
+            assertEquals(expected2, result2);
+        }
+
+        List<String> result3 = new LinkedList<>();
+        List<String> expected3 = new LinkedList<>(Arrays.asList("JJMC89 bot III", "Rich Farmbrough"));
+        expected3 = expected3.stream().sorted().collect(Collectors.toList());
+        try {
+            result3 = wm.executeQuery(query3);
+        } catch (InvalidQueryException e) {
+            fail("InvalidQueryException");
+        } finally {
+            assertEquals(expected3, result3);
+        }
+
+        List<String> result4 = new LinkedList<>();
+        Collections.reverse(expected3);
+        try {
+            result4 = wm.executeQuery(query4);
+        } catch (InvalidQueryException e) {
+            fail("InvalidQueryException");
+        } finally {
+            assertEquals(expected3, result4);
+        }
+
+        List<String> result5 = new LinkedList<>();
+        List<String> expected5 = new LinkedList<>();
+        try {
+            result5 = wm.executeQuery(query5);
+        } catch (InvalidQueryException e) {
+            fail("InvalidQueryException");
+        } finally {
+            assertEquals(expected5, result5);
+        }
+
+    }
+
+    @Test
+    public void testExecuteQuery_validQueryButInvalidInputs() {
+        WikiMediator wm = new WikiMediator();
+        String query1 = "\n \t\t get \t\t\t\t \r\ncategory where \rtitle is 'sdfsdfg_P'\t";
+        String query2 = "get author where author is 'sdfsdfg_P'";
+        String query3 = "get category where category is 'sdfsdfg_P'";
+        String query4 = "getpagewhere author is 'sdfsdfg_P'";
+        String query5 = "get author where category is 'sdfsdfg_P'";
+        String query6 = "get page where title is 'sdfsdfg_P'";
+
+        List<String> queries = new LinkedList<>();
+        queries.add(query1);
+        queries.add(query2);
+        queries.add(query3);
+        queries.add(query4);
+        queries.add(query5);
+        queries.add(query6);
+
+        List<String> expected = new LinkedList<>();
+        for (String query : queries) {
+            List<String> result = new LinkedList<>();
+
+            try {
+                result = wm.executeQuery(query);
+            } catch (InvalidQueryException e) {
+                fail("InvalidQueryException");
+            } finally {
+                assertEquals(expected, result);
+            }
+        }
+    }
+
+    @Test
+    public void testExecuteQuery_InvalidQuery() {
+        WikiMediator wm = new WikiMediator();
+        String query1 = "get Category where title is 'sdfsdfg_P'";
+        String query2 = "get author where (author is 'sdfsdfg_P')";
+        String query3 = "get category where author is 'Sylas";
+        String query4 = "get category where page is 'sdfsdfg_P'";
+        String query5 = "Get author where category is 'sdfsdfg_P'";
+        String query6 = "";
+        String query7 = null;
+
+        List<String> queries = new LinkedList<>();
+        queries.add(query1);
+        queries.add(query2);
+        queries.add(query3);
+        queries.add(query4);
+        queries.add(query5);
+        queries.add(query6);
+        queries.add(query7);
+
+        for (String query : queries) {
+            boolean exception = false;
+
+            try {
+                List<String> result = wm.executeQuery(query);
+            } catch (InvalidQueryException e) {
+                exception = true;
+            } finally {
+                if (!exception) {
+                    fail("Expected an InvalidQueryException");
+                }
+            }
+        }
     }
 
 }
