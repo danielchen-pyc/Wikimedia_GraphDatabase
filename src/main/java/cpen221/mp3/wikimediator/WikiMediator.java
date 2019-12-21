@@ -3,7 +3,12 @@ package cpen221.mp3.wikimediator;
 import cpen221.mp3.cache.Cache;
 import cpen221.mp3.cache.Cacheable;
 import cpen221.mp3.cache.NoSuchCacheElementException;
+import fastily.jwiki.core.NS;
 import fastily.jwiki.core.Wiki;
+import org.antlr.v4.runtime.*;
+import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.ParseTreeWalker;
+
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -410,8 +415,9 @@ public class WikiMediator {
      * @return a list of page titles containing a path of pages from startPage to
      *         stopPage inclusive, or an empty list if no path exists.
      * @throws IllegalArgumentException if either startPage or stopPage is an empty
-     *         string or not a Wikipedia article title
+     *         string
      */
+    //TODO - return redirect-page, not redirected-to-page - see campuswire # 2103
     public List<String> getPath(String startPage, String stopPage) {
         LinkedList<String> pagesForward = new LinkedList<>();
         HashSet<String> visitedPagesForward = new HashSet<>();
@@ -424,7 +430,12 @@ public class WikiMediator {
             throw new IllegalArgumentException("Invalid page");
         } else if (this.wiki.getLinksOnPage(startPage).size() == 0
                 || (this.wiki.whatLinksHere(stopPage).size() == 0
-                && this.wiki.whatLinksHere(stopPage, true).size() == 0)) {
+                && this.wiki.whatLinksHere(stopPage, true).size() == 0)
+                || !this.wiki.exists(startPage)
+                || !this.wiki.exists(stopPage)) {
+            System.out.println(this.wiki.whatLinksHere(stopPage).size());
+            System.out.println(this.wiki.whatLinksHere(stopPage, true).size());
+
             return new LinkedList<>();
         }
 
@@ -436,6 +447,7 @@ public class WikiMediator {
             return Arrays.asList(startPage);
         }
 
+        // Perform a breadth-first search from start and stop pages
         visitedPagesForward.add(startPage);
         pagesForward.offer(startPage);
         visitedPagesBackward.add(stopPage);
@@ -449,15 +461,19 @@ public class WikiMediator {
             int backwardLinksCount = this.wiki.getLinksOnPage(currentPageBackward).size();
             String currentPage;
             String targetPage;
+            String sourcePage;
             HashSet<String> visitedPages;
             Map<String, String> previousPage;
             LinkedList<String> pages;
             List<String> links;
 
+            // Setup the current iteration of the BFS based on which page has
+            // the least amount of links
             if (forwardLinksCount > backwardLinksCount) {
                 currentPageForward = pagesForward.poll();
                 currentPage = currentPageForward;
                 targetPage = stopPage;
+                sourcePage = startPage;
                 visitedPages = visitedPagesForward;
                 previousPage = previousPageForward;
                 pages = pagesForward;
@@ -466,10 +482,12 @@ public class WikiMediator {
                 currentPageBackward = pagesBackward.poll();
                 currentPage = currentPageBackward;
                 targetPage = startPage;
+                sourcePage = stopPage;
                 visitedPages = visitedPagesBackward;
                 previousPage = previousPageBackward;
                 pages = pagesBackward;
 
+                // Get all pages that link (directly or through redirects) to currentPage
                 links = this.wiki.whatLinksHere(currentPage);
                 List<String> redirects = this.wiki.whatLinksHere(currentPage, true);
                 for (String redirect : redirects) {
@@ -488,19 +506,26 @@ public class WikiMediator {
                     if (link.equals(targetPage)) {
                         LinkedList<String> path = new LinkedList<>();
                         String page = link;
-                        while (!page.equals(startPage)) {
+                        while (!page.equals(sourcePage)) {
                             path.addFirst(page);
                             page = previousPage.get(page);
                         }
 
-                        path.addFirst(startPage);
-                        System.out.println("link = targetPage");
+                        path.addFirst(sourcePage);
+                        System.out.println("up here");
+                        if (path.getFirst().equals(stopPage)) {
+                            Collections.reverse(path);
+                        }
+
                         return path;
                     }
 
+                    // If the BFS from both pages intersect, find the path
                     for (String page : pagesForward) {
                         if (pagesBackward.contains(page)) {
-                            // get path for each half - stick together
+                            System.out.println("down here & page = " + page);
+
+                            // Get path for each half - stick together
                             LinkedList<String> pathForward = new LinkedList<>();
                             LinkedList<String> pathBackward = new LinkedList<>();
                             List<String> path = new LinkedList<>();
@@ -512,6 +537,9 @@ public class WikiMediator {
                             }
                             pathForward.addFirst(startPage);
 
+                            // to eliminate any issues with redirects, do a modified BFS
+                            // from page to stopPage, following the path given by pathBackward
+
                             String pageBackward = previousPageBackward.get(page);
                             while (!pageBackward.equals(stopPage)) {
                                 pathBackward.addLast(pageBackward);
@@ -519,10 +547,23 @@ public class WikiMediator {
                             }
                             pathBackward.addLast(stopPage);
 
-                            path.addAll(pathForward);
-                            path.addAll(pathBackward);
+                            for (String currentBackwardsPage : pathBackward) {
+                                List<String> linksOnPage = this.wiki.getLinksOnPage(pathForward.peekLast());
+                                if (linksOnPage.contains(currentBackwardsPage)) {
+                                    pathForward.addLast(currentBackwardsPage);
+                                } else {
+                                    for (String backLink : linksOnPage) {
+                                        List<String> linkLinks = this.wiki.getLinksOnPage(backLink);
+                                        if (linkLinks.contains(currentBackwardsPage)) {
+                                            pathForward.addLast(backLink);
+                                            pathForward.addLast(currentBackwardsPage);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
 
-                            System.out.printf("forward backward intersection at %s\n", page);
+                            path.addAll(pathForward);
                             return path;
                         }
                     }
@@ -538,37 +579,134 @@ public class WikiMediator {
      *
      * @param query the query to execute
      * @return a list of all page titles that match the query
-     * @throws InvalidQueryException if query cannot be parsed
+     * @throws InvalidQueryException if query is formatted incorrectly or cannot be parsed
      */
     public List<String> executeQuery(String query) throws InvalidQueryException {
-        /*
-         * idea for how to do this
-         * 1. parse query and pass the CONDITION to executeCondition()
-         * 2. executeCondition() will recursively call itself on any subconditions within
-         * the condition passed, until all conditions are handled. Handling a condition
-         * entails  1. Running the commands for the condition (ex: getPage() for "title is 'Barack Obama'")
-         *          2. Depending on whether condition is 'and' or 'or' or a simple condition,
-         *              get the result (ex: For the condition "title is 'Barack Obama' AND category is
-         *              'Illinois State Senators'", result would be the intersection of the lists of
-         *              both sides of the condition)
-         *          3. Return the final result
-         * 3. look through the list returned from executeCondition() and apply ITEM to it (applying ITEM
-         * is a filter & map operation(s))
-         * 4. if the output is supposed to be sorted, sort it
-         * 5. return the result
-         *
-         */
-        return new LinkedList<>();
+        if (query == null) {
+            throw new InvalidQueryException();
+        }
+
+        // Create a stream of tokens using the lexer
+        CharStream stream = new ANTLRInputStream(query);
+        WikiMediatorLexer lexer = new WikiMediatorLexer(stream);
+        lexer.reportErrorsAsExceptions();
+        TokenStream tokens = new CommonTokenStream(lexer);
+
+        // Feed the tokens into the parser
+        WikiMediatorParser parser = new WikiMediatorParser(tokens);
+        parser.reportErrorsAsExceptions();
+
+        // Generate the parse tree using the starter rule
+        ParseTree tree;
+        try {
+            tree = parser.query();
+        } catch (Exception e) {
+            throw new InvalidQueryException();
+        }
+
+        // Walk over the parse tree with a listener
+        ParseTreeWalker walker = new ParseTreeWalker();
+        WikiMediatorListener_WikiMediatorCreator listener = new WikiMediatorListener_WikiMediatorCreator();
+        walker.walk(listener, tree);
+
+        return listener.getResult();
     }
 
     /**
-     * Get the result of a given condition of a query.
-     *
-     * @param condition the condition to execute
-     * @return the result of the condition
+     * A parseTree listener that evaluates a query as it walks through a parse tree.
      */
-    private List<String> executeCondition(String condition) { // maybe something is better than a string? idk
-        return new LinkedList<>();
+    private class WikiMediatorListener_WikiMediatorCreator extends WikiMediatorBaseListener {
+        private Stack<List<String>> conditionResults = new Stack<>();
+
+        @Override
+        public void exitQuery(WikiMediatorParser.QueryContext ctx) {
+            List<String> result = conditionResults.pop();
+
+            String item = ctx.ITEM().getText();
+            switch (item) {
+                case("page"):
+                    // result is already page titles
+                    break;
+                case("author"):
+                    result = result.stream().map(x -> wiki.getLastEditor(x)).collect(Collectors.toList());
+                    break;
+                case("category"):
+                    Set<String> categories = new HashSet<>();
+                    for (String page : result) {
+                        categories.addAll(wiki.getCategoriesOnPage(page));
+                    }
+
+                    result = new LinkedList<>(categories);
+                    break;
+                default:
+                    result.clear();
+                    break;
+            }
+
+            if (ctx.SORTED() != null) {
+                switch (ctx.SORTED().getText()) {
+                    case("asc"):
+                        result = result.stream().sorted().collect(Collectors.toList());
+                        break;
+                    case("desc"):
+                        result = result.stream().sorted(Collections.reverseOrder()).collect(Collectors.toList());
+                        break;
+                }
+            }
+
+            conditionResults.push(result);
+        }
+
+        @Override
+        public void exitCondition(WikiMediatorParser.ConditionContext ctx) {
+            if (ctx.simple_condition() == null) {
+                List<String> result1 = conditionResults.pop();
+                List<String> result2 = conditionResults.pop();
+
+                if (ctx.AND() != null) {
+                    result1 = result1.stream()
+                            .filter(x -> result2.contains(x))
+                            .collect(Collectors.toList());
+                } else {
+                    result1.addAll(result2);
+                    result1 = result1.stream()
+                            .distinct()
+                            .collect(Collectors.toList());
+                }
+
+                conditionResults.push(result1);
+            }
+        }
+
+        @Override
+        public void exitSimple_condition(WikiMediatorParser.Simple_conditionContext ctx) {
+            List<String> simpleCondition;
+            String item = ctx.STRING().toString().substring(1, ctx.STRING().toString().length() - 1);
+
+            if (ctx.TITLE() != null) {
+                simpleCondition = wiki.allPages(item, false, false, -1, null);
+            } else if (ctx.AUTHOR() != null) {
+                simpleCondition = wiki.getContribs(item, -1, false, NS.MAIN)
+                        .stream()
+                        .map(x -> x.title)
+                        .distinct()
+                        .filter(x -> item.equals(wiki.getLastEditor(x)))
+                        .collect(Collectors.toList());
+            } else {
+                simpleCondition = wiki.getCategoryMembers("Category:" + item, NS.MAIN);
+            }
+
+            conditionResults.push(simpleCondition);
+        }
+
+        /**
+         * Get the result of the most recently parsed query.
+         *
+         * @return the result of the query
+         */
+        private List<String> getResult() {
+            return conditionResults.pop();
+        }
     }
 
 }
