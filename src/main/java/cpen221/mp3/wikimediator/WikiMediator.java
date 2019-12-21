@@ -86,7 +86,7 @@ public class WikiMediator {
      *
      * @param query the string that is being searched
      * @param limit the maximum number of titles that is required to search
-     * @return a list that stores up to 'limit' amount of page contents whose title matches the 'query'
+     * @return a list that stores up to 'limit' amount of page title that matches 'query'
      * @throws IllegalArgumentException if page title is an empty string
      */
     public List<String> simpleSearch(String query, int limit) {
@@ -97,7 +97,7 @@ public class WikiMediator {
 
         // TODO - use the cache
         for (String title: wiki.search(query, limit)) {
-            listOfSearch.add(getPage(title));
+            listOfSearch.add(title);
             this.cache.put(new Page(wiki.getPageText(title), title));
         }
 

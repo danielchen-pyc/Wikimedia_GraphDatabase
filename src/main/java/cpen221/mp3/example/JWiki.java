@@ -26,7 +26,7 @@ public class JWiki {
 //        System.out.println(wiki.getPageText("Main Page"));
 //        System.out.println(wiki.getCategoriesOnPage(pageTitle));
 //        System.out.println(wiki.getLinksOnPage(pageTitle));
-        System.out.println(wikiM.simpleSearch("Hello", 10));
+        System.out.println(wikiM.simpleSearch("Barack Obama", 10));
 //        System.out.println(wiki.search(pageTitle, 5));
 //        System.out.println(wiki.getCategoriesOnPage(pageTitle));
 //        List<Revision> rList = wiki.getRevisions(pageTitle, 10, false, null, null);
