@@ -190,7 +190,6 @@ public class WikiMediatorTest {
     @Test
     public void testGetPath_redirects() {
         WikiMediator wm = new WikiMediator();
-        Wiki wiki = new Wiki("en.wikipedia.org");
         String startPage = "Hualien City";
         String redirectPage = "Spaniard";
         String stopPage = "Spaniards";
@@ -198,6 +197,7 @@ public class WikiMediatorTest {
         List<String> result = wm.getPath(startPage, stopPage);
         List<String> expected = new ArrayList<>();
         expected.add(startPage);
+        expected.add(redirectPage);
         expected.add(stopPage);
 
         assertEquals(expected, result);
