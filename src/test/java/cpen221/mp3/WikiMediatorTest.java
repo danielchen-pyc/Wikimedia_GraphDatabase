@@ -119,7 +119,7 @@ public class WikiMediatorTest {
         assertEquals(expected2, result2);
     }
 
-    // passes, but takes 3 min
+    // passes, but takes 2.5 min
     @Test
     public void testGetPath_longPath() {
         WikiMediator wm = new WikiMediator();
@@ -134,21 +134,12 @@ public class WikiMediatorTest {
 
         result.stream().forEach(System.out::println);
 
-        List<String> expected = new ArrayList<>();
-        expected.add("List_of_individual_dogs");
-        expected.add("Philippines");
-        expected.add("American cuisine");
-        expected.add("Butter");
-        assertEquals(expected, result);
-
-        /*
         for (int page = 0; page < result.size() - 1; page++) {
             List<String> links = wiki.getLinksOnPage(result.get(page));
             if (!links.contains(result.get(page + 1))) {
                 fail("Path does not exist");
             }
         }
-         */
     }
 
     @Test
@@ -196,7 +187,27 @@ public class WikiMediatorTest {
         assertEquals(expectedEmpty, result3);
     }
 
-    // this passed as of 2019.12.20 15:33
+    @Test
+    public void testGetPath_redirects() {
+        WikiMediator wm = new WikiMediator();
+        Wiki wiki = new Wiki("en.wikipedia.org");
+        String startPage = "Hualien City";
+        String redirectPage = "Spaniard";
+        String stopPage = "Spaniards";
+
+        boolean reB = wiki.getLinksOnPage(startPage).contains(redirectPage);
+        boolean stopB = wiki.getLinksOnPage(startPage).contains(stopPage);
+
+        List<String> result = wm.getPath(startPage, stopPage);
+        List<String> expected = new ArrayList<>();
+        expected.add(startPage);
+        expected.add(redirectPage);
+        expected.add(stopPage);
+
+        assertEquals(expected, result);
+    }
+
+    // this test passed as of 2019.12.20 15:33
     @Test
     public void testExecuteQuery_normalInputs() {
         WikiMediator wm = new WikiMediator();
@@ -300,7 +311,7 @@ public class WikiMediatorTest {
         String query2 = "get author where (author is 'sdfsdfg_P')";
         String query3 = "get category where author is 'Sylas";
         String query4 = "get category where page is 'sdfsdfg_P'";
-        String query5 = "Get author where category is 'sdfsdfg_P'";
+        String query5 = "author where category is 'sdfsdfg_P'";
         String query6 = "";
         String query7 = null;
 

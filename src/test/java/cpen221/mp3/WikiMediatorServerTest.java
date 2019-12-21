@@ -13,10 +13,8 @@ import java.util.logging.SocketHandler;
 
 public class WikiMediatorServerTest {
 
-    public final int PORT_NUMBER = 100;
-    Socket socket = new Socket("localhost", PORT_NUMBER);
-    BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-    PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
+    public final int PORT_NUMBER = 8080;
+
 
     public WikiMediatorServerTest() throws IOException {
     }
@@ -35,13 +33,19 @@ public class WikiMediatorServerTest {
     }
 
     @Test
-    public void testWikiMediatorServer() {
-        Gson gson = new Gson();
+    public void testWikiMediatorServer() throws IOException {
+
 
         try {
             WikiMediatorServer wms = new WikiMediatorServer(PORT_NUMBER, 2);
-            WikiMediatorServerTest wmst = new WikiMediatorServerTest();
+            //WikiMediatorServerTest wmst = new WikiMediatorServerTest();
             Request request = new Request("1", "simpleSearch", "", "Canada", 10, "", 0);
+
+            Gson gson = new Gson();
+            Socket socket = new Socket("localhost", PORT_NUMBER);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            PrintWriter out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
+
             out.print(gson.toJson(request));
             out.flush();
             System.out.println(in.readLine());

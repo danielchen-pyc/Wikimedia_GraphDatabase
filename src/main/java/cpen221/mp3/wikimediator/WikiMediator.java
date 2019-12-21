@@ -390,7 +390,7 @@ public class WikiMediator {
      * @return a list of page titles containing a path of pages from startPage to
      *         stopPage inclusive, or an empty list if no path exists.
      * @throws IllegalArgumentException if either startPage or stopPage is an empty
-     *         string or not a Wikipedia article title
+     *         string
      */
     //TODO - return redirect-page, not redirected-to-page - see campuswire # 2103
     public List<String> getPath(String startPage, String stopPage) {
@@ -405,7 +405,12 @@ public class WikiMediator {
             throw new IllegalArgumentException("Invalid page");
         } else if (this.wiki.getLinksOnPage(startPage).size() == 0
                 || (this.wiki.whatLinksHere(stopPage).size() == 0
-                && this.wiki.whatLinksHere(stopPage, true).size() == 0)) {
+                && this.wiki.whatLinksHere(stopPage, true).size() == 0)
+                || !this.wiki.exists(startPage)
+                || !this.wiki.exists(stopPage)) {
+            System.out.println(this.wiki.whatLinksHere(stopPage).size());
+            System.out.println(this.wiki.whatLinksHere(stopPage, true).size());
+
             return new LinkedList<>();
         }
 
@@ -479,12 +484,14 @@ public class WikiMediator {
                         }
 
                         path.addFirst(startPage);
+                        System.out.println("up here");
                         return path;
                     }
 
                     // If the BFS from both pages intersect, find the path
                     for (String page : pagesForward) {
                         if (pagesBackward.contains(page)) {
+                            System.out.println("down here & page = " + page);
 
                             // Get path for each half - stick together
                             LinkedList<String> pathForward = new LinkedList<>();
@@ -498,6 +505,9 @@ public class WikiMediator {
                             }
                             pathForward.addFirst(startPage);
 
+                            // to eliminate any issues with redirects, do a modified BFS
+                            // from page to stopPage, following the path given by pathBackward
+
                             String pageBackward = previousPageBackward.get(page);
                             while (!pageBackward.equals(stopPage)) {
                                 pathBackward.addLast(pageBackward);
@@ -505,8 +515,65 @@ public class WikiMediator {
                             }
                             pathBackward.addLast(stopPage);
 
+                            for (String currentBackwardsPage : pathBackward) {
+                                List<String> linksOnPage = this.wiki.getLinksOnPage(pathForward.peekLast());
+                                if (linksOnPage.contains(currentBackwardsPage)) {
+                                    pathForward.addLast(currentBackwardsPage);
+                                } else {
+                                    for (String backLink : linksOnPage) {
+                                        List<String> linkLinks = this.wiki.getLinksOnPage(backLink);
+                                        if (linkLinks.contains(currentBackwardsPage)) {
+                                            pathForward.addLast(backLink);
+                                            pathForward.addLast(currentBackwardsPage);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            /*
+                            LinkedList<String> secondPathForward = new LinkedList<>();
+                            HashSet<String> secondVisitedPagesForward = new HashSet<>();
+                            LinkedList<String> pathQueue = new LinkedList<>();
+                            Map<String, String> parentPage = new HashMap<>();
+                            String pageNow;
+
+                            secondVisitedPagesForward.add(page);
+                            secondPathForward.offer(page);
+                            pathQueue.offer(page);
+
+                            while (!pathQueue.isEmpty() && !pathQueue.contains(stopPage)) {
+                                pageNow = secondPathForward.poll();
+                                List<String> newLinks = this.wiki.getLinksOnPage(pageNow);
+                                for (String newLink : newLinks) {
+                                    if (!secondVisitedPagesForward.contains(newLink)) {
+                                        secondVisitedPagesForward.add(newLink);
+                                        parentPage.put(newLink, pageNow);
+                                        secondPathForward.offer(newLink);
+
+                                        if (pathBackward.contains(newLink)) {
+                                            // add to path
+                                            String currentPageNow = newLink;
+                                            while (!currentPageNow.equals(pathForward.peekLast())) {
+                                                pathQueue.addFirst(currentPageNow);
+                                                currentPageNow = parentPage.get(currentPageNow);
+                                            }
+
+                                            pathForward.addAll(pathQueue);
+                                            pathQueue.clear();
+
+                                            //restart
+                                            secondPathForward.offer(newLink);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                             */
+
                             path.addAll(pathForward);
-                            path.addAll(pathBackward);
+                            //path.addAll(pathBackward);
 
                             return path;
                         }
@@ -523,7 +590,7 @@ public class WikiMediator {
      *
      * @param query the query to execute
      * @return a list of all page titles that match the query
-     * @throws InvalidQueryException if query cannot be parsed
+     * @throws InvalidQueryException if query is formatted incorrectly or cannot be parsed
      */
     public List<String> executeQuery(String query) throws InvalidQueryException {
         if (query == null) {
@@ -548,7 +615,7 @@ public class WikiMediator {
             throw new InvalidQueryException();
         }
 
-        // Walk over the parse tree with a listener and construct the condition tree
+        // Walk over the parse tree with a listener
         ParseTreeWalker walker = new ParseTreeWalker();
         WikiMediatorListener_WikiMediatorCreator listener = new WikiMediatorListener_WikiMediatorCreator();
         walker.walk(listener, tree);
@@ -557,9 +624,7 @@ public class WikiMediator {
     }
 
     /**
-     * Get the result of a given condition of a query.
-     *
-     * @return the result of the condition
+     * A parseTree listener that evaluates a query as it walks through a parse tree.
      */
     private class WikiMediatorListener_WikiMediatorCreator extends WikiMediatorBaseListener {
         private Stack<List<String>> conditionResults = new Stack<>();
