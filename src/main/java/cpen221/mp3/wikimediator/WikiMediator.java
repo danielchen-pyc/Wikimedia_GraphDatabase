@@ -2,6 +2,7 @@ package cpen221.mp3.wikimediator;
 
 import cpen221.mp3.cache.Cache;
 import cpen221.mp3.cache.Cacheable;
+import cpen221.mp3.cache.NoSuchCacheElementException;
 import fastily.jwiki.core.Wiki;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -90,10 +91,38 @@ public class WikiMediator {
         this.cacheObjects.add(new CacheObject<>(query));
         this.methodList.put("simpleSearch", currentTime());
 
-        // TODO - use the cache
+        // TODO - check cache implementation
         for (String title: wiki.search(query, limit)) {
-            listOfSearch.add(title);
-            this.cache.put(new Page(wiki.getPageText(title), title));
+            boolean check = false;
+            for (CacheObject c : this.cacheObjects) {
+                try {
+                    if (cache.get(c.id()).id().equals(title)) {
+                        cache.touch(c.id());
+                        listOfSearch.add(title);
+                        check = true;
+                    }
+                } catch (NoSuchCacheElementException nsee) {
+                    nsee.printStackTrace();
+                }
+            }
+            if (!check) {
+                listOfSearch.add(title);
+                this.cache.put(new Page(wiki.getPageText(title), title));
+            }
+        }
+
+        for (String search: listOfSearch) {
+            boolean exists = false;
+            CacheObject c1 = new CacheObject<>(search);
+            for (CacheObject c: this.cacheObjects) {
+                if (c.equals(c1)) {
+                    exists = true;
+                    break;
+                }
+            }
+            if (!exists) {
+                this.cacheObjects.add(c1);
+            }
         }
 
         return listOfSearch;
@@ -122,6 +151,7 @@ public class WikiMediator {
         // TODO - use the cache
         this.cacheObjects.add(new CacheObject<>(pageTitle));
         this.methodList.put("getPage", currentTime());
+
         this.cache.put(page);
 
         return page.getPageText();
