@@ -51,9 +51,9 @@ public class WikiMediatorServer {
      *
      * @param port the port number to bind the server to
      * @param n the number of concurrent requests the server can handle
-     * @throws IOException if the port number is invalid
+     * @throws IllegalArgumentException if the port number is invalid
      */
-    public WikiMediatorServer(int port, int n) throws IOException{
+    public WikiMediatorServer(int port, int n) throws IllegalArgumentException {
         this.maxClients = n;
 
         ServerSocket socket;
@@ -62,7 +62,7 @@ public class WikiMediatorServer {
             socket = new ServerSocket(port);
             connected = true;
         } catch (IOException e) {
-            throw new IOException("Could not establish connection to specified port");
+            throw new IllegalArgumentException("Could not establish connection to specified port");
         } finally {
             if (!connected) {
                 socket = null;
@@ -100,6 +100,8 @@ public class WikiMediatorServer {
                     }
                 }
             });
+
+            // TODO: IOException
             // start the thread
             handler.start();
         }
@@ -177,7 +179,7 @@ public class WikiMediatorServer {
                     } catch (Exception e) { /* ignore it for now */ }
 
                     Request newRequest = new Request(id, type, timeout, query, limit, pageTitle, hops);
-                    execute(newRequest, wm, out);
+                    execute(newRequest, wm);
                 }
             }
         } finally {
@@ -191,7 +193,7 @@ public class WikiMediatorServer {
         in.close();
     }
 
-    private void execute(Request newRequest, WikiMediator wm, PrintWriter out) {
+    private void execute(Request newRequest, WikiMediator wm) {
         Gson gson = new Gson();
         String id = newRequest.getId();
         Response response;
@@ -266,7 +268,7 @@ public class WikiMediatorServer {
             default: response = new Response(id, "failed", "Operation Failed");
         }
 
-        gson.toJson(response, out);
+        writeToLocal(gson.toJson(response));
     }
 
     /**
@@ -292,6 +294,16 @@ public class WikiMediatorServer {
     private synchronized String readFromLocal(String... search) throws IOException {
 
         return Files.readString(Paths.get(dataPath), StandardCharsets.US_ASCII);
+    }
+
+
+    public static void main(String[] args) {
+        try {
+            WikiMediatorServer server = new WikiMediatorServer(100, 2);
+            server.serve();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 }
