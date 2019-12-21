@@ -703,14 +703,14 @@ public class WikiMediator {
             if (ctx.TITLE() != null) {
                 simpleCondition = wiki.allPages(item, false, false, -1, null);
             } else if (ctx.AUTHOR() != null) {
-                simpleCondition = wiki.getContribs(item, -1, false, NS.MAIN)
+                simpleCondition = wiki.getContribs(item, -1, false)
                         .stream()
                         .map(x -> x.title)
                         .distinct()
                         .filter(x -> item.equals(wiki.getLastEditor(x)))
                         .collect(Collectors.toList());
             } else {
-                simpleCondition = wiki.getCategoryMembers("Category:" + item, NS.MAIN);
+                simpleCondition = wiki.getCategoryMembers("Category:" + item);
             }
 
             conditionResults.push(simpleCondition);
