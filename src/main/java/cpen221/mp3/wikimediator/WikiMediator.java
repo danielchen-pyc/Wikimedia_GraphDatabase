@@ -298,8 +298,9 @@ public class WikiMediator {
      * @param limit the maximum number of strings that can be returned
      * @return the most common string's used in 'simpleSearch' and 'getPage' requests
      *         in the last 30 second with items being sorted in non-increasing order
+     * @throws IllegalArgumentException if limit < 0
      */
-    public List<String> trending(int limit) {
+    public List<String> trending(int limit) throws IllegalArgumentException {
         long methodStart = System.nanoTime();
         List<String> listOfStrings = new ArrayList<>();
         List<CacheObject> list = this.cacheObjects.stream()
@@ -307,6 +308,10 @@ public class WikiMediator {
                 .distinct()
                 .collect(Collectors.toList());
         this.methodList.put("trending", currentTime());
+
+        if (limit < 0) {
+            throw new IllegalArgumentException();
+        }
 
         while (listOfStrings.size() < limit && !list.isEmpty()) {
             timedOut(methodStart);

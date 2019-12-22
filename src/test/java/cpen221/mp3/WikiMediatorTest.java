@@ -263,6 +263,22 @@ public class WikiMediatorTest {
     }
 
     @Test
+    public void testTrending_negativeLimit() {
+        WikiMediator wm = new WikiMediator();
+        boolean exceptionThrown = false;
+
+        try {
+            List<String> trend = wm.trending(-1);
+        } catch (IllegalArgumentException iae) {
+            exceptionThrown = true;
+        } finally {
+            if (!exceptionThrown) {
+                fail("Expected an exception");
+            }
+        }
+    }
+
+    @Test
     public void testTrending() throws InterruptedException {
         WikiMediator wm = new WikiMediator();
         wm.simpleSearch("Canada", 5);
@@ -278,7 +294,7 @@ public class WikiMediatorTest {
     }
 
     @Test
-    public void testTrending_negativeLimit() throws InterruptedException {
+    public void testTrending_30() throws InterruptedException {
         WikiMediator wm = new WikiMediator();
         wm.simpleSearch("Canada", 5);
 
@@ -288,7 +304,7 @@ public class WikiMediatorTest {
         wm.getPage("Canada");
         ArrayList<String> commonStrings = new ArrayList<>();
 
-        assertEquals(commonStrings, wm.trending(0));
+        assertEquals(commonStrings, wm.trending(5));
     }
 
     @Test
