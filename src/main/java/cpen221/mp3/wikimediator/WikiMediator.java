@@ -3,7 +3,6 @@ package cpen221.mp3.wikimediator;
 import cpen221.mp3.cache.Cache;
 import cpen221.mp3.cache.Cacheable;
 import cpen221.mp3.cache.NoSuchCacheElementException;
-import fastily.jwiki.core.NS;
 import fastily.jwiki.core.Wiki;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -48,9 +47,11 @@ public class WikiMediator {
      * lastAccessed -> the time the string was most recently accessed
      */
 
-    private final static int CACHE_CAPACITY = 256;
-    private final static int CACHE_TIMEOUT = 12 * 60 * 60;  // 12 hours
+    private static final int CACHE_CAPACITY = 256;
+    private static final int CACHE_TIMEOUT = 12 * 60 * 60;  // 12 hours
     private final long startTime = System.nanoTime();
+
+    public double timeout = Double.POSITIVE_INFINITY;
 
     private Wiki wiki = new Wiki("en.wikipedia.org");
     private LinkedHashMap<String, Long> methodList = new LinkedHashMap<>();
@@ -91,6 +92,7 @@ public class WikiMediator {
      * @throws IllegalArgumentException if page title is an empty string
      */
     public List<String> simpleSearch(String query, int limit) {
+        long methodStart = System.nanoTime();
         ArrayList<String> listOfSearch = new ArrayList<>();
 
         this.cacheObjects.add(new CacheObject<>(query));
@@ -98,6 +100,8 @@ public class WikiMediator {
 
         // TODO - check cache implementation
         for (String title: wiki.search(query, limit)) {
+            timedOut(methodStart);
+
             boolean check = false;
             for (CacheObject c : this.cacheObjects) {
                 try {
@@ -146,12 +150,16 @@ public class WikiMediator {
      * @throws IllegalArgumentException if page title is an empty string
      */
     public String getPage(String pageTitle) {
+        long methodStart = System.nanoTime();
+
         if (pageTitle.equals("")) {
             throw new IllegalArgumentException("Page title cannot be an empty string.");
         }
 
         boolean exist = false;
         for (CacheObject c: this.cacheObjects) {
+            timedOut(methodStart);
+
             if (c.id().equals(pageTitle)) {
                 exist = true;
                 try {
@@ -208,14 +216,19 @@ public class WikiMediator {
      * @return the list of page titles that are within 'hops' range so far
      */
     private ArrayList<String> recursiveGetConnected(ArrayList<String> listOfAllTitles, String pageTitle, int hops) {
+        long methodStart = System.nanoTime();
+
         if (hops <= 0) {
             return listOfAllTitles;
         } else {
             for (int i = 0; i < wiki.getLinksOnPage(true, pageTitle).size(); i++) {
+                timedOut(methodStart);
+
                 listOfAllTitles.addAll(wiki.getLinksOnPage(true, pageTitle)
                                 .stream()
                                 .filter(x -> !listOfAllTitles.contains(x))
                                 .collect(Collectors.toList()));
+
                 listOfAllTitles
                         .addAll(recursiveGetConnected(listOfAllTitles,
                                 wiki.getLinksOnPage(true, pageTitle).get(i), --hops)
@@ -238,6 +251,7 @@ public class WikiMediator {
      *         with items being sorted in non-increasing order
      */
     public List<String> zeitgeist(int limit) {
+        long methodStart = System.nanoTime();
         List<CacheObject> list = new ArrayList<>(this.cacheObjects);
         List<String> listOfStrings = new ArrayList<>();
 
@@ -245,6 +259,8 @@ public class WikiMediator {
 
         // TODO: Check this implementation
         for (CacheObject c: this.cacheObjects) {
+            timedOut(methodStart);
+
             if (list.contains(c)) {
                 int max;
                 int stringsCommonSize = Integer.MIN_VALUE;
@@ -274,11 +290,14 @@ public class WikiMediator {
      *         in the last 30 second with items being sorted in non-increasing order
      */
     public List<String> trending(int limit) {
+        long methodStart = System.nanoTime();
         List<CacheObject> list = new ArrayList<>(this.cacheObjects);
         List<String> listOfStrings = new ArrayList<>();
 
         // TODO: Check this implementation
         for (CacheObject c: this.cacheObjects) {
+            timedOut(methodStart);
+
             if (list.contains(c)) {
                 int max;
                 int stringsCommonSize = Integer.MIN_VALUE;
@@ -288,7 +307,6 @@ public class WikiMediator {
                             .filter(x -> currentTime() - x.lastAccess <= 30 * Math.pow(10, 9))
                             .filter(x -> x.numRequests == max).count();
                 }
-
 
                 if (stringsCommonSize != 0 && listOfStrings.size() < limit) {
                     list.remove(c);
@@ -307,13 +325,15 @@ public class WikiMediator {
      * @return the maximum number of requests seen in any 30-seconds interval
      */
     public int peakLoad30s() {
+        long methodStart = System.nanoTime();
         int max = Integer.MIN_VALUE;
         this.methodList.put("peakLoad30s", currentTime());
 
         for (String methodName: this.methodList.keySet()) {
+            timedOut(methodStart);
             int numberOfCalls = getCallsInInterval(this.methodList.get(methodName),
                     this.methodList.get(methodName) + 30 * (long) Math.pow(10, 9));
-                if (numberOfCalls > max) {
+            if (numberOfCalls > max) {
                 max = numberOfCalls;
             }
         }
@@ -331,9 +351,11 @@ public class WikiMediator {
      * @return number of all the requests that happened between specified start and end time
      */
     private int getCallsInInterval(long start, long end) {
+        long methodStart = System.nanoTime();
         int callsCount = 0;
 
         for (String key: this.methodList.keySet()) {
+            timedOut(methodStart);
             if (this.methodList.get(key) >= start && this.methodList.get(key) <= end) {
                 callsCount++;
             }
@@ -418,11 +440,13 @@ public class WikiMediator {
      *         string
      */
     public List<String> getPath(String startPage, String stopPage) {
-        LinkedList<String> pagesForward = new LinkedList<>();
-        HashSet<String> visitedPagesForward = new HashSet<>();
-        Map<String, String> previousPageForward = new HashMap<>();
-        LinkedList<String> pagesBackward = new LinkedList<>();
-        HashSet<String> visitedPagesBackward = new HashSet<>();
+        long methodStart = System.nanoTime();
+
+        LinkedList<String>  pagesForward         = new LinkedList<>();
+        HashSet<String>     visitedPagesForward  = new HashSet<>();
+        Map<String, String> previousPageForward  = new HashMap<>();
+        LinkedList<String>  pagesBackward        = new LinkedList<>();
+        HashSet<String>     visitedPagesBackward = new HashSet<>();
         Map<String, String> previousPageBackward = new HashMap<>();
 
         if (startPage == null || stopPage == null || startPage.equals("") || stopPage.equals("")) {
@@ -444,6 +468,8 @@ public class WikiMediator {
             return Arrays.asList(startPage);
         }
 
+        timedOut(methodStart);
+
         // Perform a breadth-first search from start and stop pages
         visitedPagesForward.add(startPage);
         pagesForward.offer(startPage);
@@ -454,6 +480,8 @@ public class WikiMediator {
         String currentPageBackward = stopPage;
 
         while (!pagesForward.isEmpty() && !pagesBackward.isEmpty()) {
+            timedOut(methodStart);
+
             int forwardLinksCount = this.wiki.getLinksOnPage(currentPageForward).size();
             int backwardLinksCount = this.wiki.getLinksOnPage(currentPageBackward).size();
             String currentPage;
@@ -463,6 +491,8 @@ public class WikiMediator {
             Map<String, String> previousPage;
             LinkedList<String> pages;
             List<String> links;
+
+            timedOut(methodStart);
 
             // Setup the current iteration of the BFS based on which page has
             // the least amount of links
@@ -488,6 +518,7 @@ public class WikiMediator {
                 links = this.wiki.whatLinksHere(currentPage);
                 List<String> redirects = this.wiki.whatLinksHere(currentPage, true);
                 for (String redirect : redirects) {
+                    timedOut(methodStart);
                     links.addAll(this.wiki.whatLinksHere(redirect).stream()
                             .filter(s -> !links.contains(s))
                             .collect(Collectors.toList()));
@@ -495,6 +526,8 @@ public class WikiMediator {
             }
 
             for (String link : links) {
+                timedOut(methodStart);
+
                 if (!visitedPages.contains(link)) {
                     visitedPages.add(link);
                     previousPage.put(link, currentPage);
@@ -522,7 +555,7 @@ public class WikiMediator {
                             backwardsPath.addLast(stopPage);
 
                             path.addFirst(startPage);
-                            updateForwardPathFromBackwards(path, backwardsPath);
+                            updateForwardPathFromBackwards(path, backwardsPath, methodStart);
                         }
 
                         return path;
@@ -554,7 +587,7 @@ public class WikiMediator {
                             }
                             pathBackward.addLast(stopPage);
 
-                            updateForwardPathFromBackwards(pathForward, pathBackward);
+                            updateForwardPathFromBackwards(pathForward, pathBackward, methodStart);
 
                             path.addAll(pathForward);
                             return path;
@@ -573,13 +606,17 @@ public class WikiMediator {
      * @param pathForward the path list from the startPage to an intermediate page
      * @param pathBackward the path list from the intermediate page to the startPage
      */
-    private void updateForwardPathFromBackwards(LinkedList<String> pathForward, List<String> pathBackward) {
+    private void updateForwardPathFromBackwards(LinkedList<String> pathForward, List<String> pathBackward, long methodStart) {
         for (String currentBackwardsPage : pathBackward) {
+            timedOut(methodStart);
+
             List<String> linksOnPage = this.wiki.getLinksOnPage(pathForward.peekLast());
             if (linksOnPage.contains(currentBackwardsPage)) {
                 pathForward.addLast(currentBackwardsPage);
             } else {
                 for (String backLink : linksOnPage) {
+                    timedOut(methodStart);
+
                     List<String> linkLinks = this.wiki.getLinksOnPage(backLink);
                     if (linkLinks.contains(currentBackwardsPage)) {
                         pathForward.addLast(backLink);
@@ -633,11 +670,13 @@ public class WikiMediator {
      * A parseTree listener that evaluates a query as it walks through a parse tree.
      */
     private class WikiMediatorListener_WikiMediatorCreator extends WikiMediatorBaseListener {
+        long methodStart = System.nanoTime();
         private Stack<List<String>> conditionResults = new Stack<>();
 
         @Override
         public void exitQuery(WikiMediatorParser.QueryContext ctx) {
             List<String> result = conditionResults.pop();
+            timedOut(methodStart);
 
             String item = ctx.ITEM().getText();
             switch (item) {
@@ -668,6 +707,8 @@ public class WikiMediator {
                     case("desc"):
                         result = result.stream().sorted(Collections.reverseOrder()).collect(Collectors.toList());
                         break;
+                    default:
+                        break;
                 }
             }
 
@@ -676,6 +717,8 @@ public class WikiMediator {
 
         @Override
         public void exitCondition(WikiMediatorParser.ConditionContext ctx) {
+            timedOut(methodStart);
+
             if (ctx.simple_condition() == null) {
                 List<String> result1 = conditionResults.pop();
                 List<String> result2 = conditionResults.pop();
@@ -697,6 +740,8 @@ public class WikiMediator {
 
         @Override
         public void exitSimple_condition(WikiMediatorParser.Simple_conditionContext ctx) {
+            timedOut(methodStart);
+
             List<String> simpleCondition;
             String item = ctx.STRING().toString().substring(1, ctx.STRING().toString().length() - 1);
 
@@ -723,6 +768,18 @@ public class WikiMediator {
          */
         private List<String> getResult() {
             return conditionResults.pop();
+        }
+    }
+
+    /**
+     * Kill the thread if it has timed out
+     *
+     * @param methodStart time when method started running
+     * @throws RuntimeException if the thread has timed out
+     */
+    private void timedOut(long methodStart) {
+        if (System.nanoTime() < methodStart + (long) (1000000000 * timeout)) {
+            throw new RuntimeException();
         }
     }
 

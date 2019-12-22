@@ -22,6 +22,53 @@ public class WikiMediatorTest {
     }
 
     @Test
+    public void testSimpleSearch_normalInput() {
+        WikiMediator wm = new WikiMediator();
+        List<String> result = wm.simpleSearch("The Dark Knight (film)", 100);
+        System.out.println(result.toString());
+        System.out.println(result.size());
+    }
+
+    @Test
+    public void testSimpleSearch_invalidQuery() {
+        WikiMediator wm = new WikiMediator();
+
+        boolean exception1 = false;
+        try {
+            List<String> result = wm.simpleSearch("", 50);
+        } catch (IllegalArgumentException e) {
+            exception1 = true;
+        } finally {
+            if (!exception1) {
+                fail("Expected an IllegalArgumentException");
+            }
+        }
+
+        boolean exception2 = false;
+        try {
+            List<String> result = wm.simpleSearch(null, 50);
+        } catch (IllegalArgumentException e) {
+            exception2 = true;
+        } finally {
+            if (!exception2) {
+                fail("Expected an IllegalArgumentException");
+            }
+        }
+    }
+
+    @Test
+    public void testSimpleSearch_invalidLimit() {
+        WikiMediator wm = new WikiMediator();
+
+    }
+
+    @Test
+    public void testSimpleSearch_timeout() {
+        WikiMediator wm = new WikiMediator();
+
+    }
+
+    @Test
     public void testGetPage_emptyTitle() {
         WikiMediator wm = new WikiMediator();
         boolean exceptionThrown = false;
@@ -94,11 +141,20 @@ public class WikiMediatorTest {
         assertEquals(36, contents.size());
     }
 
-
     @Test
-    public void testSimpleSearch() {
+    public void testGetPage_timeout() {
         WikiMediator wm = new WikiMediator();
+        ArrayList<String> contents = new ArrayList<>();
 
+        for (int i = 0; i < 5; i++) {
+            try {
+                contents.add(wm.getPage(Integer.toString(i)));
+            } catch (IllegalArgumentException iae) {
+                fail("Shouldn't throw an exception.");
+            }
+        }
+
+        assertFalse(contents.isEmpty());
     }
 
     @Test
@@ -189,6 +245,22 @@ public class WikiMediatorTest {
 
     @Test
     public void testGetPath_redirects() {
+        WikiMediator wm = new WikiMediator();
+        String startPage = "Hualien City";
+        String redirectPage = "Spaniard";
+        String stopPage = "Spaniards";
+
+        List<String> result = wm.getPath(startPage, stopPage);
+        List<String> expected = new ArrayList<>();
+        expected.add(startPage);
+        expected.add(redirectPage);
+        expected.add(stopPage);
+
+        assertEquals(expected, result);
+    }
+
+    @Test
+    public void testGetPath_timeout() {
         WikiMediator wm = new WikiMediator();
         String startPage = "Hualien City";
         String redirectPage = "Spaniard";
@@ -302,6 +374,41 @@ public class WikiMediatorTest {
 
     @Test
     public void testExecuteQuery_InvalidQuery() {
+        WikiMediator wm = new WikiMediator();
+        String query1 = "get Category where title is 'sdfsdfg_P'";
+        String query2 = "get author where (author is 'sdfsdfg_P')";
+        String query3 = "get category where author is 'Sylas";
+        String query4 = "get category where page is 'sdfsdfg_P'";
+        String query5 = "author where category is 'sdfsdfg_P'";
+        String query6 = "";
+        String query7 = null;
+
+        List<String> queries = new LinkedList<>();
+        queries.add(query1);
+        queries.add(query2);
+        queries.add(query3);
+        queries.add(query4);
+        queries.add(query5);
+        queries.add(query6);
+        queries.add(query7);
+
+        for (String query : queries) {
+            boolean exception = false;
+
+            try {
+                List<String> result = wm.executeQuery(query);
+            } catch (InvalidQueryException e) {
+                exception = true;
+            } finally {
+                if (!exception) {
+                    fail("Expected an InvalidQueryException");
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testExecuteQuery_timeout() {
         WikiMediator wm = new WikiMediator();
         String query1 = "get Category where title is 'sdfsdfg_P'";
         String query2 = "get author where (author is 'sdfsdfg_P')";

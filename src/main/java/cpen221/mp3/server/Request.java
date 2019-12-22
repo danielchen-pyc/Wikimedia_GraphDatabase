@@ -33,7 +33,11 @@ public class Request {
     private String pageTitle;
     private int hops;
 
-    public Request(String id, String type, String timeout, String query, int limit, String pageTitle, int hops) {
+    // getPath
+    private String startPage;
+    private String stopPage;
+
+    public Request(String id, String type, String timeout, String query, int limit, String pageTitle, int hops, String startPage, String stopPage) {
         this.id = id;
         this.type = type;
         this.timeout = timeout;
@@ -41,6 +45,8 @@ public class Request {
         this.limit = limit;
         this.pageTitle = pageTitle;
         this.hops = hops;
+        this.startPage = startPage;
+        this.stopPage = stopPage;
     }
 
     public String getId() {
@@ -69,5 +75,13 @@ public class Request {
 
     public int getHops() {
         return hops;
+    }
+
+    public String getStartPage() {
+        return startPage;
+    }
+
+    public String getStopPage() {
+        return stopPage;
     }
 }

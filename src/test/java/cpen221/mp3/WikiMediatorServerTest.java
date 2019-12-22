@@ -39,7 +39,7 @@ public class WikiMediatorServerTest {
         try {
             WikiMediatorServer wms = new WikiMediatorServer(PORT_NUMBER, 2);
             //WikiMediatorServerTest wmst = new WikiMediatorServerTest();
-            Request request = new Request("1", "simpleSearch", "", "Canada", 10, "", 0);
+            Request request = new Request("1", "simpleSearch", "", "Canada", 10, "", 0, null, null);
 
             Gson gson = new Gson();
             Socket socket = new Socket("localhost", PORT_NUMBER);

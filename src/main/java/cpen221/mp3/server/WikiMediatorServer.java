@@ -12,6 +12,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
+
+import static java.lang.Thread.interrupted;
 
 public class WikiMediatorServer {
 
@@ -178,7 +182,21 @@ public class WikiMediatorServer {
                         hops = Integer.parseInt(request.get("hops").getAsString());
                     } catch (Exception e) { /* ignore it for now */ }
 
-                    Request newRequest = new Request(id, type, timeout, query, limit, pageTitle, hops);
+                    String startPage = "";
+                    try {
+                        startPage = request.get("startPage").getAsString();
+                    } catch (Exception e) {
+                        startPage = null;
+                    }
+
+                    String stopPage = "";
+                    try {
+                        stopPage = request.get("stopPage").getAsString();
+                    } catch (Exception e) {
+                        stopPage = null;
+                    }
+
+                    Request newRequest = new Request(id, type, timeout, query, limit, pageTitle, hops, startPage, stopPage);
                     execute(newRequest, wm);
                 }
             }
@@ -193,20 +211,22 @@ public class WikiMediatorServer {
         in.close();
     }
 
-    private void execute(Request newRequest, WikiMediator wm) {
+    private void execute2(Request newRequest, WikiMediator wm) {
         Gson gson = new Gson();
         String id = newRequest.getId();
-        Response response;
+        Response response = null;
+        ListResponse listResponse = null;
         long startTime = System.currentTimeMillis();
 
         switch (newRequest.getType()) {
             case "simpleSearch": {
                 if (newRequest.getQuery() != null) {
-                    response = new Response(id, "success",
-                            wm.simpleSearch(newRequest.getQuery(), newRequest.getLimit()).toString());
+                    listResponse = new ListResponse(id, "success", wm.simpleSearch(newRequest.getQuery(), newRequest.getLimit()));
+                    // response = new Response(id, "success", wm.simpleSearch(newRequest.getQuery(), newRequest.getLimit()).toString());
                 } else {
                     response = new Response(id, "failed", "Query is null.");
                 }
+                break;
             }
 
             case "getPage": {
@@ -215,15 +235,16 @@ public class WikiMediatorServer {
                 } else {
                     response = new Response(id, "failed", "pageTitle is null");
                 }
+                break;
             }
 
             case "getConnectedPages": {
                 if (newRequest.getTimeout() != null && !newRequest.getTimeout().equals("")) {
-                    String result = wm.getConnectedPages(newRequest.getPageTitle(), newRequest.getHops()).toString();
+                    List<String> result = wm.getConnectedPages(newRequest.getPageTitle(), newRequest.getHops());
                     long currentTime = System.currentTimeMillis();
                     if (newRequest.getPageTitle() != null
                             && currentTime - startTime <= Integer.parseInt(newRequest.getTimeout())) {
-                        response = new Response(id, "success", result);
+                        listResponse = new ListResponse(id, "success", result);
                     } else if (newRequest.getPageTitle() == null){
                         response = new Response(id, "failed", "pageTitle is null");
                     } else {
@@ -232,27 +253,29 @@ public class WikiMediatorServer {
                 } else {
                     response = new Response(id, "failed", "Invalid Timeout");
                 }
+                break;
             }
 
             case "zeitgeist": {
-                String result = wm.zeitgeist(newRequest.getLimit()).toString();
+                List<String> result = wm.zeitgeist(newRequest.getLimit());
                 long currentTime = System.currentTimeMillis();
                 if (currentTime - startTime <= Integer.parseInt(newRequest.getTimeout())) {
-                    response = new Response(id, "success", result);
+                    listResponse = new ListResponse(id, "success", result);
                 } else {
                     response = new Response(id, "failed", "Operation timed out");
                 }
+                break;
             }
 
             case "trending": {
-                String result = wm.trending(newRequest.getLimit()).toString();
+                List<String> result = wm.trending(newRequest.getLimit());
                 long currentTime = System.currentTimeMillis();
                 if (currentTime - startTime <= Integer.parseInt(newRequest.getTimeout())) {
-                    response = new Response(id, "success", result);
+                    listResponse = new ListResponse(id, "success", result);
                 } else {
                     response = new Response(id, "failed", "Operation timed out");
                 }
-
+                break;
             }
 
             case "peakLoad30s": {
@@ -263,12 +286,149 @@ public class WikiMediatorServer {
                 } else {
                     response = new Response(id, "failed", "Operation timed out");
                 }
+                break;
             }
 
-            default: response = new Response(id, "failed", "Operation Failed");
+            case "getPath": {
+                if (newRequest.getTimeout() != null) {
+
+                } else {
+                    try {
+                        listResponse = new ListResponse(id, "success", wm.getPath(newRequest.getStartPage(), newRequest.getStopPage()));
+                    } catch (IllegalArgumentException e) {
+                        response = new Response(id, "failed", e.getMessage());
+                    }
+                }
+                break;
+            }
+
+            default: {
+                response = new Response(id, "failed", "Operation Failed");
+                break;
+            }
         }
 
-        writeToLocal(gson.toJson(response));
+        if (response == null) {
+            writeToLocal(gson.toJson(listResponse));
+        } else {
+            writeToLocal(gson.toJson(response));
+        }
+    }
+
+    private void execute(Request newRequest, WikiMediator wm) {
+        Gson gson = new Gson();
+        String JSONResponse = null;
+
+        if (newRequest.getTimeout() != null) {
+            wm.timeout = Integer.parseInt(newRequest.getTimeout());
+        }
+
+        JSONResponse = executeRequest(newRequest, wm);
+
+        if (JSONResponse == null) {
+            JSONResponse = gson.toJson(new Response(newRequest.getId(), "failed", "Operation timed out"));
+        }
+
+        writeToLocal(JSONResponse);
+    }
+
+    private String executeRequest(Request newRequest, WikiMediator wm) {
+        Gson gson = new Gson();
+        String id = newRequest.getId();
+        Response response = null;
+        ListResponse listResponse = null;
+        long startTime = System.currentTimeMillis();
+
+        switch (newRequest.getType()) {
+            case "simpleSearch": {
+                if (newRequest.getQuery() != null) {
+                    listResponse = new ListResponse(id, "success", wm.simpleSearch(newRequest.getQuery(), newRequest.getLimit()));
+                } else {
+                    response = new Response(id, "failed", "Query is null.");
+                }
+                break;
+            }
+
+            case "getPage": {
+                if (newRequest.getPageTitle() != null) {
+                    response = new Response(id, "success", wm.getPage(newRequest.getPageTitle()));
+                } else {
+                    response = new Response(id, "failed", "pageTitle is null");
+                }
+                break;
+            }
+
+            case "getConnectedPages": {
+                if (newRequest.getTimeout() != null && !newRequest.getTimeout().equals("")) {
+                    List<String> result = wm.getConnectedPages(newRequest.getPageTitle(), newRequest.getHops());
+                    long currentTime = System.currentTimeMillis();
+                    if (newRequest.getPageTitle() != null
+                            && currentTime - startTime <= Integer.parseInt(newRequest.getTimeout())) {
+                        listResponse = new ListResponse(id, "success", result);
+                    } else if (newRequest.getPageTitle() == null){
+                        response = new Response(id, "failed", "pageTitle is null");
+                    } else {
+                        response = new Response(id, "failed", "Operation timed out");
+                    }
+                } else {
+                    response = new Response(id, "failed", "Invalid Timeout");
+                }
+                break;
+            }
+
+            case "zeitgeist": {
+                List<String> result = wm.zeitgeist(newRequest.getLimit());
+                long currentTime = System.currentTimeMillis();
+                if (currentTime - startTime <= Integer.parseInt(newRequest.getTimeout())) {
+                    listResponse = new ListResponse(id, "success", result);
+                } else {
+                    response = new Response(id, "failed", "Operation timed out");
+                }
+                break;
+            }
+
+            case "trending": {
+                List<String> result = wm.trending(newRequest.getLimit());
+                long currentTime = System.currentTimeMillis();
+                if (currentTime - startTime <= Integer.parseInt(newRequest.getTimeout())) {
+                    listResponse = new ListResponse(id, "success", result);
+                } else {
+                    response = new Response(id, "failed", "Operation timed out");
+                }
+                break;
+            }
+
+            case "peakLoad30s": {
+                String result = Integer.toString(wm.peakLoad30s());
+                long currentTime = System.currentTimeMillis();
+                if (currentTime - startTime <= Integer.parseInt(newRequest.getTimeout())) {
+                    response = new Response(id, "success", Integer.toString(wm.peakLoad30s()));
+                } else {
+                    response = new Response(id, "failed", "Operation timed out");
+                }
+                break;
+            }
+
+            case "getPath": {
+                try {
+                    listResponse = new ListResponse(id, "success", wm.getPath(newRequest.getStartPage(), newRequest.getStopPage()));
+                } catch (IllegalArgumentException e) {
+                    response = new Response(id, "failed", e.getMessage());
+                }
+                break;
+            }
+
+            default: {
+                response = new Response(id, "failed", "Operation Failed");
+                break;
+            }
+        }
+
+        if (response == null) {
+            return gson.toJson(listResponse);
+        } else {
+            return gson.toJson(response);
+        }
     }
 
     /**
