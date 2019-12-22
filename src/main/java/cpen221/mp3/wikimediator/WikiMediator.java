@@ -267,7 +267,7 @@ public class WikiMediator {
 
         this.methodList.put("zeitgeist", currentTime());
 
-        while (listOfStrings.size() < limit) {
+        while (listOfStrings.size() < limit && !list.isEmpty()) {
             timedOut(methodStart);
             int max;
             CacheObject maxCacheObject = list.get(0);
@@ -283,7 +283,11 @@ public class WikiMediator {
             listOfStrings.add(maxCacheObject.id());
         }
 
-        return listOfStrings.subList(0, limit);
+        if (listOfStrings.size() >= limit) {
+            return listOfStrings.subList(0, limit);
+        } else {
+            return listOfStrings;
+        }
     }
 
     /**

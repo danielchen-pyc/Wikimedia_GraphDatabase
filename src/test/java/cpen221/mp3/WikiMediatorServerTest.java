@@ -23,7 +23,7 @@ public class WikiMediatorServerTest {
 
     @Test
     public void testRequest() {
-        Request request = new Request("1", "simpleSearch", "", "Canada", 10, "", 0);
+        Request request = new Request("1", "simpleSearch", "", "Canada", 10, "", 0, null, null);
 
         Assert.assertEquals("1", request.getId());
         Assert.assertEquals("simpleSearch", request.getType());
