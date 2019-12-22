@@ -9,6 +9,7 @@ import fastily.jwiki.core.Wiki;
 import org.junit.Test;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
@@ -22,56 +23,70 @@ public class WikiMediatorTest {
     }
 
     @Test
-    public void testSimpleSearch_normalInput() {
+    public void testSimpleSearch() {
         WikiMediator wm = new WikiMediator();
-        List<String> result = wm.simpleSearch("The Dark Knight (film)", 100);
-        System.out.println(result.toString());
-        System.out.println(result.size());
+        String answer1 = "[Barack Obama, Barack Obama in comics, Barack Obama Sr., " +
+                "List of things named after Barack Obama]";
+        String answer2 = "";
+
+        assertEquals(answer1, wm.simpleSearch("Barack Obama", 4).toString());
+        assertEquals(answer2, wm.simpleSearch("Barack Obama", 0).toString());
     }
 
     @Test
-    public void testSimpleSearch_invalidQuery() {
+    public void testSimpleSearch_InvolvingCache() {
         WikiMediator wm = new WikiMediator();
+        String answer1 = "[Barack Obama]";
+        String answer5 = "[Barack Obama, Barack Obama in comics, Barack Obama Sr., " +
+                "List of things named after Barack Obama]";
 
-        boolean exception1 = false;
-        try {
-            List<String> result = wm.simpleSearch("", 50);
-        } catch (IllegalArgumentException e) {
-            exception1 = true;
-        } finally {
-            if (!exception1) {
-                fail("Expected an IllegalArgumentException");
-            }
-        }
-
-        boolean exception2 = false;
-        try {
-            List<String> result = wm.simpleSearch(null, 50);
-        } catch (IllegalArgumentException e) {
-            exception2 = true;
-        } finally {
-            if (!exception2) {
-                fail("Expected an IllegalArgumentException");
-            }
-        }
+        assertEquals(answer1, wm.simpleSearch("Barack Obama", 1).toString());
+        assertEquals(answer5, wm.simpleSearch("Barack Obama", 4).toString());
     }
 
     @Test
-    public void testSimpleSearch_invalidLimit() {
+    public void testSimpleSearch_InvalidInput() {
         WikiMediator wm = new WikiMediator();
+        String[] queries = {"", null};
+        int[] limits = {10, 5};
 
+        for (int i = 0; i < queries.length; i++) {
+            boolean exception = false;
+            try {
+                wm.simpleSearch(queries[i], limits[i]);
+            } catch (IllegalArgumentException e) {
+                exception = true;
+            } finally {
+                if (!exception) {
+                    fail("Expected an exception");
+                }
+            }
+        }
     }
 
     @Test
     public void testSimpleSearch_timeout() {
         WikiMediator wm = new WikiMediator();
+        wm.timeout = 1;
+
+        boolean exception = false;
+        try {
+            wm.simpleSearch("A", -1);
+        } catch (RuntimeException e) {
+            exception = true;
+        } finally {
+            if (!exception) {
+                fail("Expected an exception");
+            }
+        }
 
     }
 
     @Test
-    public void testGetPage_emptyTitle() {
+    public void testGetPage_illegalTitle() {
         WikiMediator wm = new WikiMediator();
         boolean exceptionThrown = false;
+        boolean exceptionThrown2 = false;
 
         try {
             String pageContent = wm.getPage("");
@@ -79,6 +94,16 @@ public class WikiMediatorTest {
             exceptionThrown = true;
         } finally {
             if (!exceptionThrown) {
+                fail("Invalid page title.");
+            }
+        }
+
+        try {
+            String pageContent = wm.getPage(null);
+        } catch (IllegalArgumentException iae) {
+            exceptionThrown2 = true;
+        } finally {
+            if (!exceptionThrown2) {
                 fail("Invalid page title.");
             }
         }
@@ -144,17 +169,128 @@ public class WikiMediatorTest {
     @Test
     public void testGetPage_timeout() {
         WikiMediator wm = new WikiMediator();
-        ArrayList<String> contents = new ArrayList<>();
+        wm.timeout = 0;
 
-        for (int i = 0; i < 5; i++) {
-            try {
-                contents.add(wm.getPage(Integer.toString(i)));
-            } catch (IllegalArgumentException iae) {
-                fail("Shouldn't throw an exception.");
+        boolean exceptionThrown = false;
+        try {
+            String pageContent = wm.getPage("Google");
+        } catch (RuntimeException e) {
+            exceptionThrown = true;
+        } finally {
+            if (!exceptionThrown) {
+                fail("Should have timed out");
             }
         }
+    }
 
-        assertFalse(contents.isEmpty());
+    @Test
+    public void testGetConnectedPages_0hops() {
+        WikiMediator wm = new WikiMediator();
+        ArrayList<String> noHop = new ArrayList<>();
+        noHop.add("Canada");
+        String oneHop = "[29th Infantry Regiment (United States), Bundeswehr, 29th Infantry Division (United States), " +
+                "Luftwaffe, Battle of Kesternich, Medal of Honor, Bremerhaven, 18th Infantry Regiment (United States), " +
+                "Jonah Edward Kelley, Jacobs University, Cold War, Bremen, 1st Infantry Division (United States), " +
+                "Geographic coordinate system, Displaced person, 78th Infantry Division (United States), " +
+                "Germany, World War II]";
+
+        assertEquals(noHop, wm.getConnectedPages("Canada", 0));
+        assertEquals(oneHop, wm.getConnectedPages("Camp Grohn", 1).toString());
+        assertEquals(7868, wm.getConnectedPages("Camp Grohn", 2).size());
+    }
+
+    @Test
+    public void testGetConnectedPages_illegalInput() {
+        WikiMediator wm = new WikiMediator();
+        String[] pageTitle = {"", null, "valid"};
+        int[] hops = {10, 5, -1};
+
+        for (int i = 0; i < pageTitle.length; i++) {
+            boolean exception = false;
+            try {
+                wm.getConnectedPages(pageTitle[i], hops[i]);
+            } catch (IllegalArgumentException e) {
+                exception = true;
+            } finally {
+                if (!exception) {
+                    fail("Expected an exception");
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testZeitgeist() {
+        WikiMediator wm = new WikiMediator();
+        wm.getPage("Taiwan");
+        wm.getPage("Canada");
+        wm.simpleSearch("Canada", 5);
+        ArrayList<String> commonStrings = new ArrayList<>();
+        commonStrings.add("Canada"); commonStrings.add("Taiwan");
+        commonStrings.add("Cañada"); commonStrings.add("Monarchy of Canada");
+        commonStrings.add("Province of Canada");
+
+        assertEquals(commonStrings, wm.zeitgeist(5));
+    }
+
+    @Test
+    public void testZeitgeist_negativeLimit() {
+        WikiMediator wm = new WikiMediator();
+        boolean exceptionThrown = false;
+
+        try {
+            List<String> zeit = wm.zeitgeist(-1);
+        } catch (IllegalArgumentException iae) {
+            exceptionThrown = true;
+        } finally {
+            if (!exceptionThrown) {
+                fail("Expected an exception");
+            }
+        }
+    }
+
+    @Test
+    public void testTrending() throws InterruptedException {
+        WikiMediator wm = new WikiMediator();
+        wm.simpleSearch("Canada", 5);
+
+        TimeUnit.MINUTES.sleep(1);
+
+        wm.getPage("Taiwan");
+        wm.getPage("Canada");
+        ArrayList<String> commonStrings = new ArrayList<>();
+        commonStrings.add("Canada"); commonStrings.add("Taiwan");
+
+        assertEquals(commonStrings, wm.trending(5));
+    }
+
+    @Test
+    public void testTrending_negativeLimit() throws InterruptedException {
+        WikiMediator wm = new WikiMediator();
+        wm.simpleSearch("Canada", 5);
+
+        TimeUnit.MINUTES.sleep(1);
+
+        wm.getPage("Taiwan");
+        wm.getPage("Canada");
+        ArrayList<String> commonStrings = new ArrayList<>();
+
+        assertEquals(commonStrings, wm.trending(0));
+    }
+
+    @Test
+    public void testPeakLoad30() throws InterruptedException {
+        WikiMediator wm = new WikiMediator();
+        wm.getPage("Taiwan");
+        wm.getPage("Canada");
+        wm.simpleSearch("Canada", 3);
+
+        assertEquals(3, wm.peakLoad30s());
+
+        TimeUnit.SECONDS.sleep(30);
+
+        wm.simpleSearch("Taiwan", 5);
+        assertEquals(2, wm.peakLoad30s());
     }
 
     @Test
