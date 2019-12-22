@@ -23,6 +23,19 @@ public class WikiMediatorTest {
     }
 
     @Test
+    public void testPage() {
+        Page p1 = new Page("Canada", "Canada");
+        Page p2 = new Page("Canada", "Canada");
+        Page p3 = new Page("UBC", "ubc");
+
+        boolean b1 = p1.equals(p2);
+        boolean b2 = p1.equals(p3);
+
+        assertTrue(b1);
+        assertFalse(b2);
+    }
+
+    @Test
     public void testSimpleSearch() {
         WikiMediator wm = new WikiMediator();
         String answer1 = "[Barack Obama, Barack Obama in comics, Barack Obama Sr., " +
@@ -184,7 +197,7 @@ public class WikiMediatorTest {
     }
 
     @Test
-    public void testGetConnectedPages_0hops() {
+    public void testGetConnectedPages() {
         WikiMediator wm = new WikiMediator();
         ArrayList<String> noHop = new ArrayList<>();
         noHop.add("Canada");

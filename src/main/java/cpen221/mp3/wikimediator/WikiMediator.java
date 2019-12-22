@@ -99,7 +99,6 @@ public class WikiMediator {
         this.cacheObjects.add(new CacheObject<>(query));
         this.methodList.put("simpleSearch", currentTime());
 
-        // TODO - check cache implementation
         for (String title: wiki.search(query, limit)) {
             timedOut(methodStart);
 
@@ -321,7 +320,7 @@ public class WikiMediator {
             listOfStrings.add(maxCacheObject.id());
         }
 
-        if (listOfStrings.size() >= 5) {
+        if (listOfStrings.size() >= limit) {
             return listOfStrings.subList(0, limit);
         } else {
             return listOfStrings;

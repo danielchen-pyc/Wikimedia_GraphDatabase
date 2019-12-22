@@ -2,9 +2,11 @@ package cpen221.mp3;
 
 import com.google.gson.Gson;
 import cpen221.mp3.server.Request;
+import cpen221.mp3.server.Response;
 import cpen221.mp3.server.WikiMediatorServer;
 import cpen221.mp3.wikimediator.WikiMediator;
 import fastily.jwiki.core.Wiki;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.*;
@@ -17,6 +19,28 @@ public class WikiMediatorServerTest {
 
 
     public WikiMediatorServerTest() throws IOException {
+    }
+
+    @Test
+    public void testRequest() {
+        Request request = new Request("1", "simpleSearch", "", "Canada", 10, "", 0);
+
+        Assert.assertEquals("1", request.getId());
+        Assert.assertEquals("simpleSearch", request.getType());
+        Assert.assertEquals("", request.getTimeout());
+        Assert.assertEquals("Canada", request.getQuery());
+        Assert.assertEquals(10, request.getLimit());
+        Assert.assertEquals("", request.getPageTitle());
+        Assert.assertEquals(0, request.getHops());
+    }
+
+    @Test
+    public void testResponse() {
+        Response response = new Response("1", "success", "Invalid");
+
+        Assert.assertEquals("1", response.getId());
+        Assert.assertEquals("simpleSearch", response.getStatus());
+        Assert.assertEquals("Invalid", response.getResponse());
     }
 
     @Test
