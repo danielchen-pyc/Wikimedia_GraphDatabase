@@ -9,6 +9,7 @@ import fastily.jwiki.core.Wiki;
 import org.junit.Test;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
@@ -98,7 +99,81 @@ public class WikiMediatorTest {
     @Test
     public void testSimpleSearch() {
         WikiMediator wm = new WikiMediator();
+        String answer = "[Barack Obama, Barack Obama in comics, Barack Obama Sr., " +
+                "List of things named after Barack Obama]";
 
+        assertEquals(answer, wm.simpleSearch("Barack Obama", 4).toString());
+    }
+
+    @Test
+    public void testSimpleSearchInvolvingCache() {
+        WikiMediator wm = new WikiMediator();
+        String answer1 = "[Barack Obama]";
+        String answer5 = "[Barack Obama, Barack Obama in comics, Barack Obama Sr., " +
+                "List of things named after Barack Obama]";
+
+        assertEquals(answer1, wm.simpleSearch("Barack Obama", 1).toString());
+        assertEquals(answer5, wm.simpleSearch("Barack Obama", 4).toString());
+    }
+
+    @Test
+    public void testGetConnectedPages_0hops() {
+        WikiMediator wm = new WikiMediator();
+        ArrayList<String> noHop = new ArrayList<>();
+        noHop.add("Canada");
+        String oneHop = "[29th Infantry Regiment (United States), Bundeswehr, 29th Infantry Division (United States), " +
+                "Luftwaffe, Battle of Kesternich, Medal of Honor, Bremerhaven, 18th Infantry Regiment (United States), " +
+                "Jonah Edward Kelley, Jacobs University, Cold War, Bremen, 1st Infantry Division (United States), " +
+                "Geographic coordinate system, Displaced person, 78th Infantry Division (United States), " +
+                "Germany, World War II]";
+
+        assertEquals(noHop, wm.getConnectedPages("Canada", 0));
+        assertEquals(oneHop, wm.getConnectedPages("Camp Grohn", 1).toString());
+        assertEquals(7868, wm.getConnectedPages("Camp Grohn", 2).size());
+    }
+
+    @Test
+    public void testZeitgeist() {
+        WikiMediator wm = new WikiMediator();
+        wm.getPage("Taiwan");
+        wm.getPage("Canada");
+        wm.simpleSearch("Canada", 5);
+        ArrayList<String> commonStrings = new ArrayList<>();
+        commonStrings.add("Canada"); commonStrings.add("Taiwan");
+        commonStrings.add("Cañada"); commonStrings.add("Monarchy of Canada");
+        commonStrings.add("Province of Canada");
+
+        assertEquals(commonStrings, wm.zeitgeist(5));
+    }
+
+    @Test
+    public void testTrending() throws InterruptedException {
+        WikiMediator wm = new WikiMediator();
+        wm.simpleSearch("Canada", 5);
+
+        TimeUnit.MINUTES.sleep(1);
+
+        wm.getPage("Taiwan");
+        wm.getPage("Canada");
+        ArrayList<String> commonStrings = new ArrayList<>();
+        commonStrings.add("Canada"); commonStrings.add("Taiwan");
+
+        assertEquals(commonStrings, wm.trending(5));
+    }
+
+    @Test
+    public void testPeakLoad30() throws InterruptedException {
+        WikiMediator wm = new WikiMediator();
+        wm.getPage("Taiwan");
+        wm.getPage("Canada");
+        wm.simpleSearch("Canada", 3);
+
+        assertEquals(3, wm.peakLoad30s());
+
+        TimeUnit.SECONDS.sleep(30);
+
+        wm.simpleSearch("Taiwan", 5);
+        assertEquals(2, wm.peakLoad30s());
     }
 
     @Test

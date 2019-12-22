@@ -101,16 +101,18 @@ public class WikiMediator {
             boolean check = false;
             for (CacheObject c : this.cacheObjects) {
                 try {
-                    if (cache.get(c.id()).id().equals(title)) {
+                    if (cache.get(c.id()).id().equals(title)
+                            && !listOfSearch.contains(title)) {
                         cache.touch(c.id());
+                        c.update();
                         listOfSearch.add(title);
                         check = true;
                     }
                 } catch (NoSuchCacheElementException nsee) {
-                    nsee.printStackTrace();
+                    // do nothing
                 }
             }
-            if (!check) {
+            if (!check && !listOfSearch.contains(title)) {
                 listOfSearch.add(title);
                 this.cache.put(new Page(wiki.getPageText(title), title));
             }
@@ -154,6 +156,7 @@ public class WikiMediator {
         for (CacheObject c: this.cacheObjects) {
             if (c.id().equals(pageTitle)) {
                 exist = true;
+                c.update();
                 try {
                     this.methodList.put("getPage", currentTime());
                     return this.cache.get(pageTitle).getPageText();
@@ -209,21 +212,20 @@ public class WikiMediator {
      */
     private ArrayList<String> recursiveGetConnected(ArrayList<String> listOfAllTitles, String pageTitle, int hops) {
         if (hops <= 0) {
-            return listOfAllTitles;
-        } else {
-            for (int i = 0; i < wiki.getLinksOnPage(true, pageTitle).size(); i++) {
-                listOfAllTitles.addAll(wiki.getLinksOnPage(true, pageTitle)
-                                .stream()
-                                .filter(x -> !listOfAllTitles.contains(x))
-                                .collect(Collectors.toList()));
-                listOfAllTitles
-                        .addAll(recursiveGetConnected(listOfAllTitles,
-                                wiki.getLinksOnPage(true, pageTitle).get(i), --hops)
-                        .stream()
-                        .filter(x -> !listOfAllTitles.contains(x))
-                        .collect(Collectors.toList()));
+            ArrayList<String> newTitle = new ArrayList<>();
+            if (!listOfAllTitles.contains(pageTitle)) {
+                newTitle.add(pageTitle);
+                return newTitle;
             }
-            return listOfAllTitles;
+            return new ArrayList<>();
+        } else {
+            int currentHops = hops - 1;
+            ArrayList<String> linksOnPage = wiki.getLinksOnPage(true, pageTitle);
+            listOfAllTitles.addAll(linksOnPage);
+            for (String link: linksOnPage) {
+                listOfAllTitles.addAll(recursiveGetConnected(listOfAllTitles, link, currentHops));
+            }
+            return (ArrayList<String>) listOfAllTitles.stream().distinct().collect(Collectors.toList());
         }
     }
 
@@ -243,25 +245,22 @@ public class WikiMediator {
 
         this.methodList.put("zeitgeist", currentTime());
 
-        // TODO: Check this implementation
-        for (CacheObject c: this.cacheObjects) {
-            if (list.contains(c)) {
-                int max;
-                int stringsCommonSize = Integer.MIN_VALUE;
-                if (this.cacheObjects.stream().map(x -> x.numRequests).max(Integer::compareTo).isPresent()) {
-                    max = this.cacheObjects.stream().map(x -> x.numRequests).max(Integer::compareTo).get();
-                    stringsCommonSize = (int) this.cacheObjects.stream()
-                            .filter(x -> x.numRequests == max).count();
-                }
-
-                if (stringsCommonSize != 0 && listOfStrings.size() < limit) {
-                    list.removeAll(Collections.singleton(c));
-                    listOfStrings.add(c.id());
+        while (listOfStrings.size() < limit) {
+            int max;
+            CacheObject maxCacheObject = list.get(0);
+            max = list.stream().map(x -> x.numRequests).max(Integer::compareTo).get();
+            for (CacheObject c : list) {
+                if (c.numRequests == max) {
+                    maxCacheObject = c;
+                    break;
                 }
             }
+
+            list.removeAll(Collections.singleton(maxCacheObject));
+            listOfStrings.add(maxCacheObject.id());
         }
 
-        return listOfStrings;
+        return listOfStrings.subList(0, limit);
     }
 
     /**
@@ -274,30 +273,33 @@ public class WikiMediator {
      *         in the last 30 second with items being sorted in non-increasing order
      */
     public List<String> trending(int limit) {
-        List<CacheObject> list = new ArrayList<>(this.cacheObjects);
         List<String> listOfStrings = new ArrayList<>();
+        List<CacheObject> list = this.cacheObjects.stream()
+                .filter(x -> Math.abs(currentTime() - x.lastAccess) <= 30 * Math.pow(10, 9))
+                .distinct()
+                .collect(Collectors.toList());
+        this.methodList.put("trending", currentTime());
 
-        // TODO: Check this implementation
-        for (CacheObject c: this.cacheObjects) {
-            if (list.contains(c)) {
-                int max;
-                int stringsCommonSize = Integer.MIN_VALUE;
-                if (this.cacheObjects.stream().map(x -> x.numRequests).max(Integer::compareTo).isPresent()) {
-                    max = this.cacheObjects.stream().map(x -> x.numRequests).max(Integer::compareTo).get();
-                    stringsCommonSize = (int) this.cacheObjects.stream()
-                            .filter(x -> currentTime() - x.lastAccess <= 30 * Math.pow(10, 9))
-                            .filter(x -> x.numRequests == max).count();
-                }
+        while (listOfStrings.size() < limit && !list.isEmpty()) {
+            CacheObject maxCacheObject = list.get(0);
+            int max = list.stream().map(x -> x.numRequests).max(Integer::compareTo).get();
 
-
-                if (stringsCommonSize != 0 && listOfStrings.size() < limit) {
-                    list.remove(c);
-                    listOfStrings.add(c.id());
+            for (CacheObject c : list) {
+                if (c.numRequests == max) {
+                    maxCacheObject = c;
+                    break;
                 }
             }
+
+            list.remove(maxCacheObject);
+            listOfStrings.add(maxCacheObject.id());
         }
 
-        return listOfStrings;
+        if (listOfStrings.size() >= 5) {
+            return listOfStrings.subList(0, limit);
+        } else {
+            return listOfStrings;
+        }
     }
 
     /**
@@ -361,7 +363,16 @@ public class WikiMediator {
         private CacheObject(string s) {
             this.s = s;
             this.lastAccess = currentTime();
-            this.numRequests = 0;
+            this.numRequests = 1;
+        }
+
+
+        /**
+         * Update the number of requests of the cacheObject
+         */
+        private void update() {
+            this.numRequests++;
+            this.lastAccess = currentTime();
         }
 
 
@@ -386,9 +397,7 @@ public class WikiMediator {
         public boolean equals(Object o) {
             if (o instanceof CacheObject) {
                 CacheObject c = (CacheObject<?>) o;
-                if (this.s.equals(c.s)) {
-                    return true;
-                }
+                return this.s.equals(c.s);
             }
             return false;
         }
@@ -682,7 +691,7 @@ public class WikiMediator {
 
                 if (ctx.AND() != null) {
                     result1 = result1.stream()
-                            .filter(x -> result2.contains(x))
+                            .filter(result2::contains)
                             .collect(Collectors.toList());
                 } else {
                     result1.addAll(result2);
