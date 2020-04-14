@@ -1,13 +1,6 @@
-**MP3 / CPEN 221 / Fall 2019**
-
 # Wikipedia and Graph Databases
 
-This mini-project involves interacting with Wikipedia and performing many operations.
+This project involves interacting with Wikipedia and performing many operations.
 
-Some of the learning goals for this mini-project are:
-
-* Working with external libraries (such as `jwiki` ,`gson`, and `antler`);
-* Implementing reusable datatypes such as `Cache`;
-* Using multi-threading to handle certain aspects of the implementation;
-* Managing shared memory when multiple threads are involved;
-* Implementing parsers for a given grammar and executing queries on a database.
+Utilizing the Wikimedia API to create a Wiki-Server with caching functionality that handles concurrent requests using socket programming. The server is also capable of parsing and executing structured queries.
+Executed and optimized Dijkstra’s algorithm and breadth-first search to find the shortest distance (links) between one Wikimedia page and another.
