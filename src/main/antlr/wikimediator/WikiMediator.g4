@@ -1,6 +1,5 @@
 grammar WikiMediator;
 
-// This puts "package cpen221.mp3.wikimediator;" for all generated Java files. .
 @header {
 package cpen221.mp3.wikimediator;
 }
